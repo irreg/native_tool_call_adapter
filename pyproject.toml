@@ -1,0 +1,11 @@
+[project]
+name = "native-tool-call-adapter"
+version = "0.1.0"
+description = "Helps agents work more efficiently by translating client tool calls into native tool calls in the API"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.116.1",
+    "httpx>=0.28.1",
+    "uvicorn>=0.35.0",
+]
