@@ -31,6 +31,7 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
    - Base URL: http://localhost:8000/v1  
    - API Key: Setting the API key will automatically use it when communicating with TARGET_BASE_URL.
 
+## Àsè‡
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
 3. `set TARGET_BASE_URL=ÀÛ‚ÌLLM‚ª“®ì‚µ‚Ä‚¢‚éURL`
