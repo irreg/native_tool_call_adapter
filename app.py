@@ -16,6 +16,8 @@ def process_request(req: dict[str, Any]) -> dict[str, Any]:
     req = copy.deepcopy(req)
     if req["messages"] and req["messages"][0]["role"] in ["system", "user"]:
         target = req["messages"][0]["content"]
+        if isinstance(target, list):
+            target = "\n".join([str(t["text"]) for t in target if isinstance(t, dict) and "text" in t])
         schemas, processed = generate_tool_schemas(target)
         req["messages"][0]["content"] = processed
         if schemas:

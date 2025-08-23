@@ -25,10 +25,10 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 2. `uv sync`
 3. `set TARGET_BASE_URL=actual LLM operating URL`
 4. `uv run main.py`
-5. The server will start on port 8000, so configure Cline and Roo-Code.  
-   Example:  
-   - API Provider: OpenAI Compatible  
-   - Base URL: http://localhost:8000/v1  
+5. The server will start on port 8000, so configure Cline and Roo-Code.
+   Example:
+   - API Provider: OpenAI Compatible
+   - Base URL: http://localhost:8000/v1
    - API Key: Setting the API key will automatically use it when communicating with TARGET_BASE_URL.
 
 ## é¿çséËèá
