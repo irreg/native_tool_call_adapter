@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import re
 import textwrap
@@ -515,6 +516,10 @@ def convert_xml_to_obj_exclude_id(
             id_value = child.text
             root.remove(child)
             break
+    else:
+        # If the ID is lost for some reason, set an appropriate ID.
+        # Generate in a reproducible manner so that cache can be reused.
+        id_value = hashlib.md5(xml_string.encode()).hexdigest()
 
     return root.tag, convert_xml_element_to_obj(root, tool_schemas), id_value
 
