@@ -184,7 +184,6 @@ def parse_xml_example(xml_str: str) -> ET.Element:
         def replace_pseudo_tags_in_parentheses(text: str) -> str:
             def repl_paren(match):
                 content = match.group(1)
-                # 括弧内のタグを変換
                 converted = re.sub(r"</?([\w]*)\s*/?>", r"`\1`", content)
                 return f"({converted})"
 
@@ -467,7 +466,10 @@ def convert_obj_to_xml_with_id(
     root = ET.Element(root_name)
     build_xml_element(root, json_obj)
     ET.SubElement(root, "id").text = id  # Add id as a child element
-    return ET.tostring(root, encoding="unicode")
+    xml_str = ET.tostring(root, encoding="unicode")
+    xml_str = xml_str.replace("\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; REPLACE\n", "\n=======\n")
+    xml_str = xml_str.replace("\n------- REPLACE\n", "\n=======\n")
+    return xml_str
 
 
 def modify_tool_calls_to_xml_messages(
@@ -530,29 +532,29 @@ def modify_xml_messages_to_tool_calls(
                 last_id_value = []
                 last_tool_name = []
                 # Parse XML content
-                try:
-                    xml_tool_calls = extract_xml_blocks_for_tool(
-                        message["content"],
-                        [s["function"]["name"] for s in tool_schemas],
-                    )
-                    for xml in xml_tool_calls:
+                xml_tool_calls = extract_xml_blocks_for_tool(
+                    message["content"],
+                    [s["function"]["name"] for s in tool_schemas],
+                )
+                for xml in xml_tool_calls:
+                    try:
                         name, json_dict, id_value = convert_xml_to_obj_exclude_id(
                             xml, tool_schemas
                         )
-                        tool_call = {
-                            "type": "function",
-                            "id": id_value,
-                            "function": {
-                                "name": name,
-                                "arguments": json.dumps(json_dict, ensure_ascii=False),
-                            },
-                        }
-                        tool_calls.append(tool_call)
-                        last_id_value.append(id_value)
-                        last_tool_name.append(name)
-                        message["content"] = message["content"].replace(xml, "")
-                except ET.ParseError:
-                    continue  # Skip if content is not valid XML
+                    except ET.ParseError:
+                        continue  # Skip if content is not valid XML
+                    tool_call = {
+                        "type": "function",
+                        "id": id_value,
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(json_dict, ensure_ascii=False),
+                        },
+                    }
+                    tool_calls.append(tool_call)
+                    last_id_value.append(id_value)
+                    last_tool_name.append(name)
+                    message["content"] = message["content"].replace(xml, "")
                 message["tool_calls"] = tool_calls
                 continue
         if (

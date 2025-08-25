@@ -59,6 +59,11 @@ async def create_completion(request: Request):
                     headers=headers,
                     params=request.query_params,
                 ) as r:
+                    if r.is_error:
+                        await r.aread()
+                        yield f"data: {r.text}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
                     buffer = ""
                     last_chunk = None
                     role = None
@@ -87,7 +92,7 @@ async def create_completion(request: Request):
                             yield line + "\n\n"
                             continue
                         data = json.loads(line[6:])
-                        choice = data.get("choices", [{}])[0]
+                        choice = (data.get("choices") or [{}])[0]
                         delta = choice.get("delta", {})
                         if (
                             not delta
@@ -99,7 +104,7 @@ async def create_completion(request: Request):
                         role = delta.get("role", role)
                         choice_index = choice.get("index", choice_index)
                         if role == "assistant":
-                            tool_call = delta.get("tool_calls", [{}])[0]
+                            tool_call = (delta.get("tool_calls") or [{}])[0]
                             if tool_call.get("index") != tool_call_index and buffer:
                                 yield create_tool_call()
                             if tool_call:
@@ -125,6 +130,8 @@ async def create_completion(request: Request):
                 headers=headers,
                 params=request.query_params,
             )
+            if r.is_error:
+                return JSONResponse(status_code=r.status_code, content=r.json())
             modified_response = modify_tool_calls_to_xml_messages(r.json())
             return JSONResponse(status_code=r.status_code, content=modified_response)
 
