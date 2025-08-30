@@ -114,7 +114,7 @@ class Parser:
         return messages
 
 
-def generate_tool_schemas(doc: str) -> tuple[Parser, str]:
+def build_tool_parser(doc: str) -> tuple[Parser, str]:
     tools_md = extract_tools_section(doc)
     new_doc = remove_duplicated_section_from_doc(doc)
 

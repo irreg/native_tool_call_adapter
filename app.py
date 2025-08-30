@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from parser_control import (
     Parser,
-    generate_tool_schemas,
+    build_tool_parser,
 )
 
 app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
@@ -17,29 +17,33 @@ app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
 TARGET_BASE_URL = os.getenv("TARGET_BASE_URL", "https://api.openai.com/v1")
 
 
-def process_request(req: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
-    req = copy.deepcopy(req)
-    if req["messages"] and req["messages"][0]["role"] in ["system", "user"]:
-        target = req["messages"][0]["content"]
-        if isinstance(target, list):
-            target = "\n".join(
-                [str(t["text"]) for t in target if isinstance(t, dict) and "text" in t]
+def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
+    request = copy.deepcopy(request)
+    if request["messages"] and request["messages"][0]["role"] in ["system", "user"]:
+        system_prompt = request["messages"][0]["content"]
+        if isinstance(system_prompt, list):
+            system_prompt = "\n".join(
+                [
+                    str(t["text"])
+                    for t in system_prompt
+                    if isinstance(t, dict) and "text" in t
+                ]
             )
-        parser, processed = generate_tool_schemas(target)
-        req["messages"][0]["content"] = processed
+        parser, processed_system_prompt = build_tool_parser(system_prompt)
+        request["messages"][0]["content"] = processed_system_prompt
         if parser.schemas:
-            req["tools"] = parser.schemas
+            request["tools"] = parser.schemas
 
-    req["messages"] = parser.modify_xml_messages_to_tool_calls(
-        req["messages"], req.get("tools", [])
+    request["messages"] = parser.modify_xml_messages_to_tool_calls(
+        request["messages"], request.get("tools", [])
     )
-    return req, parser
+    return request, parser
 
 
-async def handle_stream(r: httpx.Response, parser: Parser) -> AsyncIterator[str]:
-    if r.is_error:
-        await r.aread()
-        yield f"data: {r.text}\n\n"
+async def handle_stream(response: httpx.Response, parser: Parser) -> AsyncIterator[str]:
+    if response.is_error:
+        await response.aread()
+        yield f"data: {response.text}\n\n"
         yield "data: [DONE]\n\n"
         return
     buffer = ""
@@ -49,7 +53,7 @@ async def handle_stream(r: httpx.Response, parser: Parser) -> AsyncIterator[str]
     tool_call_index = 0
     tool_call_id = ""
     tool_name = ""
-    async for line in r.aiter_lines():
+    async for line in response.aiter_lines():
         if not line.startswith("data: "):
             continue
 
@@ -100,14 +104,14 @@ async def handle_stream(r: httpx.Response, parser: Parser) -> AsyncIterator[str]
 
 @app.post("/v1/chat/completions")
 async def create_completion(request: Request):
-    modified_req, parser = process_request(await request.json())
+    modified_request, parser = process_request(await request.json())
 
     headers = dict(request.headers)
     if "host" in headers:
         del headers["host"]
     if "content-length" in headers:
         del headers["content-length"]
-    stream = modified_req.get("stream")
+    stream = modified_request.get("stream")
     if stream:
 
         async def event_stream() -> AsyncIterator[str]:
@@ -115,7 +119,7 @@ async def create_completion(request: Request):
                 async with client.stream(
                     "POST",
                     f"{TARGET_BASE_URL}/chat/completions",
-                    json=modified_req,
+                    json=modified_request,
                     headers=headers,
                     params=request.query_params,
                 ) as r:
@@ -127,7 +131,7 @@ async def create_completion(request: Request):
         async with httpx.AsyncClient(timeout=None) as client:
             r = await client.post(
                 f"{TARGET_BASE_URL}/chat/completions",
-                json=modified_req,
+                json=modified_request,
                 headers=headers,
                 params=request.query_params,
             )
