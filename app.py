@@ -8,10 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from parser_control import (
+    Parser,
     generate_tool_schemas,
-    modify_tool_call_to_xml_message,
-    modify_tool_calls_to_xml_messages,
-    modify_xml_messages_to_tool_calls,
 )
 
 app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
@@ -19,7 +17,7 @@ app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
 TARGET_BASE_URL = os.getenv("TARGET_BASE_URL", "https://api.openai.com/v1")
 
 
-def process_request(req: dict[str, Any]) -> dict[str, Any]:
+def process_request(req: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
     req = copy.deepcopy(req)
     if req["messages"] and req["messages"][0]["role"] in ["system", "user"]:
         target = req["messages"][0]["content"]
@@ -27,18 +25,18 @@ def process_request(req: dict[str, Any]) -> dict[str, Any]:
             target = "\n".join(
                 [str(t["text"]) for t in target if isinstance(t, dict) and "text" in t]
             )
-        schemas, processed = generate_tool_schemas(target)
+        parser, processed = generate_tool_schemas(target)
         req["messages"][0]["content"] = processed
-        if schemas:
-            req["tools"] = schemas
+        if parser.schemas:
+            req["tools"] = parser.schemas
 
-    req["messages"] = modify_xml_messages_to_tool_calls(
+    req["messages"] = parser.modify_xml_messages_to_tool_calls(
         req["messages"], req.get("tools", [])
     )
-    return req
+    return req, parser
 
 
-async def handle_stream(r: httpx.Response) -> AsyncIterator[str]:
+async def handle_stream(r: httpx.Response, parser: Parser) -> AsyncIterator[str]:
     if r.is_error:
         await r.aread()
         yield f"data: {r.text}\n\n"
@@ -57,7 +55,7 @@ async def handle_stream(r: httpx.Response) -> AsyncIterator[str]:
 
         def create_tool_call():
             nonlocal buffer, tool_name, tool_call_id
-            modified_data = modify_tool_call_to_xml_message(
+            modified_data = parser.modify_tool_call_to_xml_message(
                 tool_name, buffer, tool_call_id
             )
             last_chunk["choices"][0]["delta"]["content"] = modified_data
@@ -102,7 +100,7 @@ async def handle_stream(r: httpx.Response) -> AsyncIterator[str]:
 
 @app.post("/v1/chat/completions")
 async def create_completion(request: Request):
-    modified_req = process_request(await request.json())
+    modified_req, parser = process_request(await request.json())
 
     headers = dict(request.headers)
     if "host" in headers:
@@ -121,7 +119,7 @@ async def create_completion(request: Request):
                     headers=headers,
                     params=request.query_params,
                 ) as r:
-                    async for iter in handle_stream(r):
+                    async for iter in handle_stream(r, parser):
                         yield iter
 
         return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -135,7 +133,7 @@ async def create_completion(request: Request):
             )
             if r.is_error:
                 return JSONResponse(status_code=r.status_code, content=r.json())
-            modified_response = modify_tool_calls_to_xml_messages(r.json())
+            modified_response = parser.modify_tool_calls_to_xml_messages(r.json())
             return JSONResponse(status_code=r.status_code, content=modified_response)
 
 
