@@ -1,5 +1,4 @@
 import hashlib
-import json
 import re
 import textwrap
 import xml.etree.ElementTree as ET
@@ -14,6 +13,7 @@ class ToolDoc:
     description: str = ""
     parameters_markdown: str = ""
     xml_samples: list[str] = field(default_factory=list)
+    tool_md: str = ""
 
 
 def extract_section(doc: str, section_name: str) -> str:
@@ -59,6 +59,7 @@ def parse_tools_section(tools_md: str) -> list[ToolDoc]:
                 description=desc.strip(),
                 parameters_markdown=combined_params.strip(),
                 xml_samples=xmls,
+                tool_md=body,
             )
         )
     return tools
@@ -219,7 +220,8 @@ def convert_xml_element_to_obj(
     - Repeated tags under same parent -> list
     """
     schema = next((s for s in tool_schemas if s["function"]["name"] == elem.tag), None)
-    assert schema is not None, f"No schema found for tool {elem.tag}"
+    if schema is None:
+        raise ValueError(f"No schema found for tool {elem.tag}")
 
     def inner(elem: ET.Element, inner_schema: JsonObj) -> JsonObj:
         children = list(elem)
@@ -396,18 +398,6 @@ def build_tool_schema(tool: ToolDoc) -> JsonObj:
     if tool.description:
         schema["description"] = tool.description
     return {"type": "function", "function": schema}
-
-
-def convert_xml_example_to_json(
-    tool_name: str, xml_str: str, schemas: list[JsonObj]
-) -> str:
-    root = parse_xml_example(xml_str)
-    assert root.tag == tool_name, (
-        f"Unexpected root tag {root.tag}, expected {tool_name}"
-    )
-    payload = convert_xml_element_to_obj(root, schemas)
-    # The OpenAI "arguments" is everything inside the tool root
-    return f"{tool_name} arguments: {json.dumps(payload, ensure_ascii=False)}"
 
 
 def remove_duplicated_section_from_doc(doc: str) -> str:

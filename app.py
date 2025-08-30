@@ -32,15 +32,15 @@ def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
         parser, processed_system_prompt = build_tool_parser(system_prompt)
         request["messages"][0]["content"] = processed_system_prompt
         if parser.schemas:
-            request["tools"] = parser.schemas
+            request["tools"] = (request.get("tools") or []) + parser.schemas
 
-    request["messages"] = parser.modify_xml_messages_to_tool_calls(
-        request["messages"], request.get("tools", [])
-    )
+    request["messages"] = parser.modify_xml_messages_to_tool_calls(request["messages"])
     return request, parser
 
 
-async def handle_stream(response: httpx.Response, parser: Parser) -> AsyncIterator[str]:
+async def handle_stream_response(
+    response: httpx.Response, parser: Parser
+) -> AsyncIterator[str]:
     if response.is_error:
         await response.aread()
         yield f"data: {response.text}\n\n"
@@ -114,7 +114,7 @@ async def create_completion(request: Request):
     stream = modified_request.get("stream")
     if stream:
 
-        async def event_stream() -> AsyncIterator[str]:
+        async def create_event_stream() -> AsyncIterator[str]:
             async with httpx.AsyncClient(timeout=None) as client:
                 async with client.stream(
                     "POST",
@@ -123,10 +123,10 @@ async def create_completion(request: Request):
                     headers=headers,
                     params=request.query_params,
                 ) as r:
-                    async for iter in handle_stream(r, parser):
+                    async for iter in handle_stream_response(r, parser):
                         yield iter
 
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        return StreamingResponse(create_event_stream(), media_type="text/event-stream")
     else:
         async with httpx.AsyncClient(timeout=None) as client:
             r = await client.post(
