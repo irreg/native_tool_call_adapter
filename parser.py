@@ -17,9 +17,9 @@ class ToolDoc:
     xml_samples: list[str] = field(default_factory=list)
 
 
-def extract_tools_section(doc: str) -> str:
-    # Extract from "# Tools" up to the next top-level heading "# "
-    m = re.search(r"^#\s+Tools\b", doc, flags=re.MULTILINE)
+def extract_section(doc: str, section_name: str) -> str:
+    # Extract from "# section_name" up to the next top-level heading "# "
+    m = re.search(rf"^#\s+{re.escape(section_name)}\n", doc, flags=re.MULTILINE)
     if not m:
         return ""
     start = m.start()
@@ -32,7 +32,7 @@ def parse_tools_section(tools_md: str) -> list[ToolDoc]:
     # Split by "## <tool_name>"
     chunks = re.split(r"^##\s+(\w+)\s*$", tools_md, flags=re.MULTILINE)
     # re.split keeps delimiters: [before, name1, body1, name2, body2,...]
-    out: list[ToolDoc] = []
+    tools: list[ToolDoc] = []
     for i in range(1, len(chunks), 2):
         name = chunks[i].strip()
         body = chunks[i + 1]
@@ -54,7 +54,7 @@ def parse_tools_section(tools_md: str) -> list[ToolDoc]:
             .replace(params3, ""),
             name,
         )
-        out.append(
+        tools.append(
             ToolDoc(
                 name=name,
                 description=desc.strip(),
@@ -62,7 +62,7 @@ def parse_tools_section(tools_md: str) -> list[ToolDoc]:
                 xml_samples=xmls,
             )
         )
-    return out
+    return tools
 
 
 def extract_block_after_label(body: str, label: str) -> str:
@@ -408,19 +408,18 @@ def convert_xml_example_to_json(
     )
     payload = convert_xml_element_to_obj(root, schemas)
     # The OpenAI "arguments" is everything inside the tool root
-    return json.dumps(
-        {"name": tool_name, "arguments": json.dumps(payload, ensure_ascii=False)},
-        indent=2,
-        ensure_ascii=False,
-    )
+    return f"{tool_name} arguments: {json.dumps(payload, ensure_ascii=False)}"
 
 
 def generate_tool_schemas(doc: str) -> tuple[list[JsonObj], str]:
-    tools_md = extract_tools_section(doc)
+    # Remove xml formatting explanation from doc
+    tool_formatting = extract_section(doc, "Tool Use Formatting")
+    new_doc = doc.replace(tool_formatting, "")
+
+    # parse tools
+    tools_md = extract_section(doc, "Tools")
     tools = parse_tools_section(tools_md)
     tools_schemas = []
-    new_doc = doc
-
     for t in tools:
         schema = build_tool_schema(t)
         tools_schemas.append(schema)
@@ -467,7 +466,7 @@ def convert_obj_to_xml_with_id(
     root = ET.Element(root_name)
     build_xml_element(root, json_obj)
     ET.SubElement(root, "id").text = id  # Add id as a child element
-    xml_str = ET.tostring(root, encoding="unicode")
+    xml_str = ET.tostring(root, encoding="unicode", short_empty_elements=False)
     xml_str = xml_str.replace("\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; REPLACE\n", "\n=======\n")
     xml_str = xml_str.replace("\n------- REPLACE\n", "\n=======\n")
     return xml_str
