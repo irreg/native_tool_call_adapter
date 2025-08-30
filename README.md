@@ -2,13 +2,24 @@
 
 ## Overview
 
+- BEFORE (without this app)
 ```mermaid
 flowchart LR
-    A[cline, Roo-Code] --> |XML tool defs|B[This app]
+    A[cline, Roo-Code] --> |XML tool defs|C[LLM]
+    C -.-> |XML tool calls
+    <u>with a potentially incorrect signature</u>|A
+```
+
+- AFTER (with this app)
+```mermaid
+flowchart LR
+    A[cline, Roo-Code] --> |XML tool defs|B[**This app**]
     B --> |native tool defs|C[LLM]
     C -.-> |native tool calls|B
-    B -.-> |XML tool calls|A
+    B -.-> |XML tool calls
+    <u>with an accurate signature</u>|A
 ```
+
 
 With relatively small models, [cline](https://github.com/cline/cline) and [Roo-Code](https://github.com/RooCodeInc/Roo-Code) tool calls may not be handled properly.
 This application parses XML-formatted tool calls from Cline and Roo-Code and converts them into a format compliant with OpenAI API's tool_calls.
