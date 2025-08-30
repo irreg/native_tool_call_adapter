@@ -1,6 +1,4 @@
-import copy
 import hashlib
-import json
 import re
 import textwrap
 import xml.etree.ElementTree as ET
@@ -15,6 +13,7 @@ class ToolDoc:
     description: str = ""
     parameters_markdown: str = ""
     xml_samples: list[str] = field(default_factory=list)
+    tool_md: str = ""
 
 
 def extract_section(doc: str, section_name: str) -> str:
@@ -60,6 +59,7 @@ def parse_tools_section(tools_md: str) -> list[ToolDoc]:
                 description=desc.strip(),
                 parameters_markdown=combined_params.strip(),
                 xml_samples=xmls,
+                tool_md=body,
             )
         )
     return tools
@@ -220,7 +220,8 @@ def convert_xml_element_to_obj(
     - Repeated tags under same parent -> list
     """
     schema = next((s for s in tool_schemas if s["function"]["name"] == elem.tag), None)
-    assert schema is not None, f"No schema found for tool {elem.tag}"
+    if schema is None:
+        raise ValueError(f"No schema found for tool {elem.tag}")
 
     def inner(elem: ET.Element, inner_schema: JsonObj) -> JsonObj:
         children = list(elem)
@@ -399,43 +400,15 @@ def build_tool_schema(tool: ToolDoc) -> JsonObj:
     return {"type": "function", "function": schema}
 
 
-def convert_xml_example_to_json(
-    tool_name: str, xml_str: str, schemas: list[JsonObj]
-) -> str:
-    root = parse_xml_example(xml_str)
-    assert root.tag == tool_name, (
-        f"Unexpected root tag {root.tag}, expected {tool_name}"
-    )
-    payload = convert_xml_element_to_obj(root, schemas)
-    # The OpenAI "arguments" is everything inside the tool root
-    return f"{tool_name} arguments: {json.dumps(payload, ensure_ascii=False)}"
-
-
-def generate_tool_schemas(doc: str) -> tuple[list[JsonObj], str]:
-    # Remove xml formatting explanation from doc
-    tool_formatting = extract_section(doc, "Tool Use Formatting")
-    new_doc = doc.replace(tool_formatting, "")
-
-    # parse tools
-    tools_md = extract_section(doc, "Tools")
-    tools = parse_tools_section(tools_md)
-    tools_schemas = []
-    for t in tools:
-        schema = build_tool_schema(t)
-        tools_schemas.append(schema)
-        # Convert each XML usage into a JSON call sample
-        for x in t.xml_samples:
-            json_example = convert_xml_example_to_json(t.name, x, tools_schemas)
-            new_doc = new_doc.replace(x, json_example)
-
+def remove_duplicated_section_from_doc(doc: str) -> str:
     # Remove duplicated sections from the doc
     new_doc = re.sub(
         r"^(?:\*\*)?(Required |Optional )?(Description|Parameter)s?:(?:\*\*)?\s*([\s\S]*?)(?=^(\*\*)?((Required |Optional ) ?Parameters?:|##?\s+|Usages?:|(Usage )?Examples?(\b[\w ]+)?:|\Z)(\*\*)?)",
         "",
-        new_doc,
+        doc,
         flags=re.MULTILINE,
     )
-    return tools_schemas, new_doc
+    return new_doc
 
 
 def convert_obj_to_xml_with_id(
@@ -472,37 +445,6 @@ def convert_obj_to_xml_with_id(
     return xml_str
 
 
-def modify_tool_calls_to_xml_messages(
-    messages: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    messages = copy.deepcopy(messages)
-    for choice in messages.get("choices", []):
-        if choice["message"]["role"] == "assistant" and choice["message"].get(
-            "tool_calls"
-        ):
-            xml_parts = []
-            for tool_call in choice["message"]["tool_calls"]:
-                xml_parts.append(
-                    convert_obj_to_xml_with_id(
-                        json.loads(tool_call["function"]["arguments"]),
-                        root_name=tool_call["function"]["name"],
-                        id=tool_call["id"],
-                    )
-                )
-            choice["message"]["content"] = (
-                choice["message"].get("content") or ""
-            ) + "\n".join(xml_parts)
-            if choice["finish_reason"] == "tool_calls":
-                choice["finish_reason"] = "stop"
-    return messages
-
-
-def modify_tool_call_to_xml_message(
-    name: str, tool_call: str, id: str
-) -> dict[str, Any]:
-    return convert_obj_to_xml_with_id(json.loads(tool_call), root_name=name, id=id)
-
-
 def convert_xml_to_obj_exclude_id(
     xml_string: str, tool_schemas: list[JsonObj]
 ) -> tuple[str, JsonObj, str]:
@@ -521,61 +463,3 @@ def convert_xml_to_obj_exclude_id(
         id_value = hashlib.md5(xml_string.encode()).hexdigest()
 
     return root.tag, convert_xml_element_to_obj(root, tool_schemas), id_value
-
-
-def modify_xml_messages_to_tool_calls(
-    messages: list[dict[str, Any]], tool_schemas: list[JsonObj]
-) -> list[dict[str, Any]]:
-    messages = copy.deepcopy(messages)
-    last_id_value: list[str] | None = []
-    last_tool_name: list[str] | None = []
-    for message in messages:
-        if message["role"] == "assistant":
-            if message["content"] and isinstance(message["content"], str):
-                tool_calls = []
-                last_id_value = []
-                last_tool_name = []
-                # Parse XML content
-                xml_tool_calls = extract_xml_blocks_for_tool(
-                    message["content"],
-                    [s["function"]["name"] for s in tool_schemas],
-                )
-                for xml in xml_tool_calls:
-                    try:
-                        name, json_dict, id_value = convert_xml_to_obj_exclude_id(
-                            xml, tool_schemas
-                        )
-                    except ET.ParseError:
-                        continue  # Skip if content is not valid XML
-                    tool_call = {
-                        "type": "function",
-                        "id": id_value,
-                        "function": {
-                            "name": name,
-                            "arguments": json.dumps(json_dict, ensure_ascii=False),
-                        },
-                    }
-                    tool_calls.append(tool_call)
-                    last_id_value.append(id_value)
-                    last_tool_name.append(name)
-                    message["content"] = message["content"].replace(xml, "")
-                message["tool_calls"] = tool_calls
-                continue
-        if (
-            message["role"] == "user"
-            and last_id_value
-            and isinstance(message["content"], list)
-            and message["content"]
-            and (message["content"][0].get("text") or "").startswith(
-                f"[{last_tool_name[0]} "
-            )
-        ):
-            # If user message has tool calls, append last tool call
-            message["role"] = "tool"
-            message["tool_call_id"] = last_id_value[0]
-            last_id_value = last_id_value[1:]
-            last_tool_name = last_tool_name[1:]
-            continue
-        last_id_value = []
-        last_tool_name = []
-    return messages
