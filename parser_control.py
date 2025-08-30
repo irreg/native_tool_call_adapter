@@ -24,8 +24,8 @@ class Parser:
     def schemas(self) -> list[JsonObj]:
         return self._schemas
 
-    @staticmethod
     def modify_xml_messages_to_tool_calls(
+        self,
         messages: list[dict[str, Any]],
         tool_schemas: list[JsonObj],
     ) -> list[dict[str, Any]]:
@@ -83,14 +83,13 @@ class Parser:
             last_tool_name = []
         return messages
 
-    @staticmethod
     def modify_tool_call_to_xml_message(
-        name: str, tool_call: str, id: str
+        self, name: str, tool_call: str, id: str
     ) -> dict[str, Any]:
         return convert_obj_to_xml_with_id(json.loads(tool_call), root_name=name, id=id)
 
-    @staticmethod
     def modify_tool_calls_to_xml_messages(
+        self,
         messages: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         messages = copy.deepcopy(messages)
