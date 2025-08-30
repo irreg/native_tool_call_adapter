@@ -9,7 +9,7 @@ from parser import (
     convert_obj_to_xml_with_id,
     convert_xml_example_to_json,
     convert_xml_to_obj_exclude_id,
-    extract_tools_section,
+    extract_section,
     extract_xml_blocks_for_tool,
     parse_tools_section,
     remove_duplicated_section_from_doc,
@@ -114,9 +114,14 @@ class Parser:
         return messages
 
 
-def build_tool_parser(doc: str) -> tuple[Parser, str]:
-    tools_md = extract_tools_section(doc)
-    new_doc = remove_duplicated_section_from_doc(doc)
+def build_tool_parser(system_prompt: str) -> tuple[Parser, str]:
+    # Remove xml formatting explanation from doc
+    tool_formatting = extract_section(system_prompt, "Tool Use Formatting")
+    new_system_prompt = system_prompt.replace(tool_formatting, "")
+
+    # parse tools
+    tools_md = extract_section(system_prompt, "Tools")
+    new_system_prompt = remove_duplicated_section_from_doc(new_system_prompt)
 
     tools = parse_tools_section(tools_md)
     tools_schemas = []
@@ -126,6 +131,6 @@ def build_tool_parser(doc: str) -> tuple[Parser, str]:
         # Convert each XML usage into a JSON call sample
         for x in t.xml_samples:
             json_example = convert_xml_example_to_json(t.name, x, tools_schemas)
-            new_doc = new_doc.replace(x, json_example)
+            new_system_prompt = new_system_prompt.replace(x, json_example)
 
-    return Parser(tools_schemas), new_doc
+    return Parser(tools_schemas), new_system_prompt

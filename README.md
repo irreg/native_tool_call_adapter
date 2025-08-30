@@ -1,6 +1,15 @@
 # NativeToolCallAdapter
 
 ## Overview
+
+```mermaid
+flowchart LR
+    A[cline, Roo-Code] --> |XML tool defs|B[This app]
+    B --> |native tool defs|C[LLM]
+    C -.-> |native tool calls|B
+    B -.-> |XML tool calls|A
+```
+
 With relatively small models, [cline](https://github.com/cline/cline) and [Roo-Code](https://github.com/RooCodeInc/Roo-Code) tool calls may not be handled properly.
 This application parses XML-formatted tool calls from Cline and Roo-Code and converts them into a format compliant with OpenAI API's tool_calls.
 
@@ -24,6 +33,8 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
 3. `set TARGET_BASE_URL=actual LLM operating URL`
+   Example:
+   - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
 5. The server will start on port 8000, so configure Cline and Roo-Code.
    Example:
@@ -35,6 +46,8 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
 3. `set TARGET_BASE_URL=実際のLLMが動作しているURL`
+   Example:
+   - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
 5. port 8000でサーバーが起動するので、Cline, Roo-Codeを設定してください。
    例: 
