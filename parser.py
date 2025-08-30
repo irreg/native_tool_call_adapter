@@ -17,9 +17,9 @@ class ToolDoc:
     xml_samples: list[str] = field(default_factory=list)
 
 
-def extract_tools_section(doc: str) -> str:
-    # Extract from "# Tools" up to the next top-level heading "# "
-    m = re.search(r"^#\s+Tools\b", doc, flags=re.MULTILINE)
+def extract_section(doc: str, section_name: str) -> str:
+    # Extract from "# section_name" up to the next top-level heading "# "
+    m = re.search(rf"^#\s+{re.escape(section_name)}\n", doc, flags=re.MULTILINE)
     if not m:
         return ""
     start = m.start()
@@ -416,11 +416,14 @@ def convert_xml_example_to_json(
 
 
 def generate_tool_schemas(doc: str) -> tuple[list[JsonObj], str]:
-    tools_md = extract_tools_section(doc)
+    # Remove xml formatting explanation from doc
+    tool_formatting = extract_section(doc, "Tool Use Formatting")
+    new_doc = doc.replace(tool_formatting, "")
+
+    # parse tools
+    tools_md = extract_section(doc, "Tools")
     tools = parse_tools_section(tools_md)
     tools_schemas = []
-    new_doc = doc
-
     for t in tools:
         schema = build_tool_schema(t)
         tools_schemas.append(schema)
