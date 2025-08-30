@@ -408,11 +408,7 @@ def convert_xml_example_to_json(
     )
     payload = convert_xml_element_to_obj(root, schemas)
     # The OpenAI "arguments" is everything inside the tool root
-    return json.dumps(
-        {"name": tool_name, "arguments": json.dumps(payload, ensure_ascii=False)},
-        indent=2,
-        ensure_ascii=False,
-    )
+    return f"{tool_name} arguments: {json.dumps(payload, ensure_ascii=False)}"
 
 
 def generate_tool_schemas(doc: str) -> tuple[list[JsonObj], str]:
