@@ -36,16 +36,18 @@ def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
         server_name = chunks[i].strip()
         server_uri = chunks[i + 1].strip()
         m = None
+        start_pos = 0
         available_tools_md = ""
         while True:
             section_name = "### Available Tools"
             m = re.search(
                 rf"^{re.escape(section_name)}\n",
-                chunks[i + 2][(m.end() if m else 0) :],
+                chunks[i + 2][start_pos:],
                 flags=re.MULTILINE,
             )
             if m:
-                available_tools_md = chunks[i + 2][m.end() :]
+                start_pos += m.end()
+                available_tools_md = chunks[i + 2][start_pos:]
             else:
                 break
         tools_chunks = re.split(
