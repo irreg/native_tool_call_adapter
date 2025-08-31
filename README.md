@@ -70,11 +70,11 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 
 ## Settings
 The following settings can be configured as environment variables
-TARGET_BASE_URL: (default: https://api.openai.com/v1) URL hosting the LLM
-TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) URL hosting this application
-TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
+- TARGET_BASE_URL: (default: https://api.openai.com/v1) URL hosting the LLM
+- TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) URL hosting this application
+- TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
 
 下記の設定を環境変数として設定可能です
-TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMをホスティングしているURL
-TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
-TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
+- TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMをホスティングしているURL
+- TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
+- TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
