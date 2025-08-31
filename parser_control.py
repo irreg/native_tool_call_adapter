@@ -8,6 +8,7 @@ from extra_parser import (
     ExtraParserIF,
     ReplaceInFileParser,
     UpdateTodoListParser,
+    UseMcpToolParser,
 )
 from parser import (
     JsonObj,
@@ -25,40 +26,56 @@ from parser import (
 
 
 class Parser:
-    def __init__(self, doc: str, tool_docs: list[ToolDoc]):
+    def __init__(self, system_prompt: str, tool_docs: list[ToolDoc]):
         schemas: list[JsonObj] = []
         modified_schemas: list[JsonObj] = []
         extra_parsers: list[ExtraParserIF] = []
         for t in tool_docs:
             schema = build_tool_schema(t)
             schemas.append(schema)
-            extra_parser, modified_schema = self._get_extra_parser(t.tool_md, schema)
+            extra_parser, modified_schema, extra_replacement = self._get_extra_parser(
+                t.tool_md, schema, system_prompt
+            )
             if extra_parser:
                 extra_parsers.append(extra_parser)
-                modified_schemas.append(modified_schema)
+                if isinstance(modified_schema, list):
+                    modified_schemas.extend(modified_schema)
+                else:
+                    modified_schemas.append(modified_schema)
             else:
                 modified_schemas.append(schema)
+            for before, after in extra_replacement.items():
+                system_prompt = system_prompt.replace(before, after)
         self._original_schemas = schemas
         self._schemas = modified_schemas
         self._extra_parsers = extra_parsers
+        self._system_prompt = system_prompt
 
     @staticmethod
     def _get_extra_parser(
-        doc: str, schema: JsonObj
-    ) -> tuple[ExtraParserIF | None, JsonObj | None]:
+        doc: str, schema: JsonObj, system_prompt: str
+    ) -> tuple[ExtraParserIF | None, JsonObj | list[JsonObj] | None, dict[str, str]]:
         parsers: list[ExtraParserIF] = [
             UpdateTodoListParser(),
             ApplyDiffParser(),
             ReplaceInFileParser(),
+            UseMcpToolParser(),
         ]
         for parser in parsers:
-            if modified_schema := parser.get_schema(doc, schema):
-                return parser, modified_schema
-        return None, None
+            modified_schema, extra_replacement = parser.get_schema(
+                doc, schema, system_prompt
+            )
+            if modified_schema:
+                return parser, modified_schema, extra_replacement
+        return None, None, {}
 
     @property
     def schemas(self) -> list[JsonObj]:
         return self._schemas
+
+    @property
+    def system_prompt(self) -> str:
+        return self._system_prompt
 
     def _postconvert_to_tool_call(
         self, name: str, arguments_obj: JsonObj
@@ -134,7 +151,7 @@ class Parser:
     def _preconvert_to_xml_message(
         self, name: str, arguments: str
     ) -> tuple[str, JsonObj]:
-        arguments_obj = json.loads(arguments)
+        arguments_obj = json.loads(arguments.strip())
         for extra_parser in self._extra_parsers:
             name, arguments_obj = extra_parser.preconvert_to_xml(name, arguments_obj)
         return name, arguments_obj
@@ -206,6 +223,7 @@ def build_tool_parser(system_prompt: str) -> tuple[Parser, str]:
     tools = parse_tools_section(tools_md)
 
     parser = Parser(new_system_prompt, tools)
+    new_system_prompt = parser.system_prompt
     for t in tools:
         # Convert each XML usage into a JSON call sample
         for x in t.xml_samples:

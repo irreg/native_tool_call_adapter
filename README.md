@@ -2,55 +2,79 @@
 
 ## Overview
 
+- BEFORE (without this app)
 ```mermaid
 flowchart LR
-    A[cline, Roo-Code] --> |XML tool defs|B[This app]
-    B --> |native tool defs|C[LLM]
-    C -.-> |native tool calls|B
-    B -.-> |XML tool calls|A
+    A[cline, Roo-Code] --> |XML tool defs|C[LLM]
+    C -.-> |XML tool calls
+    <u>with a potentially incorrect signature</u>|A
 ```
+
+- AFTER (with this app)
+```mermaid
+flowchart LR
+    A[cline, Roo-Code] --> |XML tool defs|B[**This app**]
+    B --> |native tool defs|C[LLM]
+    C -.-> |native tool calls
+    <u>with an accurate signature</u>|B
+    B -.-> |XML tool calls
+    <u>with an accurate signature</u>|A
+```
+
 
 With relatively small models, [cline](https://github.com/cline/cline) and [Roo-Code](https://github.com/RooCodeInc/Roo-Code) tool calls may not be handled properly.
 This application parses XML-formatted tool calls from Cline and Roo-Code and converts them into a format compliant with OpenAI API's tool_calls.
 
 Significant improvements in performance have been confirmed with [gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) and other models.
 
-”äŠr“I¬‚³‚Èƒ‚ƒfƒ‹‚Å‚ÍA[cline](https://github.com/cline/cline)‚â[Roo-Code](https://github.com/RooCodeInc/Roo-Code)‚Ìƒc[ƒ‹ŒÄ‚Ño‚µ‚Ìˆ—‚ªãè‚­ˆµ‚¦‚È‚¢‚±‚Æ‚ª‚ ‚è‚Ü‚·B
-‚±‚ÌƒAƒvƒŠƒP[ƒVƒ‡ƒ“‚ÍCline‚âRoo-Code‚ÌXMLŒ`®‚Ìƒc[ƒ‹ŒÄ‚Ño‚µ‚ğƒp[ƒX‚µAOpenAI API‚Ìtool_calls‚É€‚¶‚½Œ`®‚É•ÏŠ·‚µ‚Ü‚·B
+æ¯”è¼ƒçš„å°ã•ãªãƒ¢ãƒ‡ãƒ«ã§ã¯ã€[cline](https://github.com/cline/cline)ã‚„[Roo-Code](https://github.com/RooCodeInc/Roo-Code)ã®ãƒ„ãƒ¼ãƒ«å‘¼ã³å‡ºã—ã®å‡¦ç†ãŒä¸Šæ‰‹ãæ‰±ãˆãªã„ã“ã¨ãŒã‚ã‚Šã¾ã™ã€‚
+ã“ã®ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã¯Clineã‚„Roo-Codeã®XMLå½¢å¼ã®ãƒ„ãƒ¼ãƒ«å‘¼ã³å‡ºã—ã‚’ãƒ‘ãƒ¼ã‚¹ã—ã€OpenAI APIã®tool_callsã«æº–ã˜ãŸå½¢å¼ã«å¤‰æ›ã—ã¾ã™ã€‚
 
-[gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)‚È‚Ç‚Å‹““®‚ª‘å•‚É‰ü‘P‚·‚é‚±‚Æ‚ªŠm”F‚Å‚«‚Ä‚¢‚Ü‚·B
+[gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)ãªã©ã§æŒ™å‹•ãŒå¤§å¹…ã«æ”¹å–„ã™ã‚‹ã“ã¨ãŒç¢ºèªã§ãã¦ã„ã¾ã™ã€‚
 
 ## Notes
 This is an experimental application.
 Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working if the prompt specifications change in the future.
 
-‚ ‚­‚Ü‚Å‚àÀŒ±“I‚ÈƒAƒvƒŠƒP[ƒVƒ‡ƒ“‚Å‚·B
-ƒp[ƒXˆ—‚ÍCline/Roo-Code‚Ìƒvƒƒ“ƒvƒg‚Ì“à—e‚ÉˆË‘¶‚µ‚Ä‚¢‚é‚½‚ßA«—ˆ“I‚Èƒvƒƒ“ƒvƒg‚Ìd—l•ÏX‚Å“®‚©‚È‚­‚È‚é‰Â”\«‚ª‚ ‚è‚Ü‚·B
+ã‚ãã¾ã§ã‚‚å®Ÿé¨“çš„ãªã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã§ã™ã€‚
+ãƒ‘ãƒ¼ã‚¹å‡¦ç†ã¯Cline/Roo-Codeã®ãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã®å†…å®¹ã«ä¾å­˜ã—ã¦ã„ã‚‹ãŸã‚ã€å°†æ¥çš„ãªãƒ—ãƒ­ãƒ³ãƒ—ãƒˆã®ä»•æ§˜å¤‰æ›´ã§å‹•ã‹ãªããªã‚‹å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚
 
 
 ## Execution Steps
 
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
-3. `set TARGET_BASE_URL=actual LLM operating URL`
+3. `set TARGET_BASE_URL=actual LLM operating URL`  
    Example:
    - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
-5. The server will start on port 8000, so configure Cline and Roo-Code.
+5. The server will start on port 8000, so configure Cline and Roo-Code.  
    Example:
    - API Provider: OpenAI Compatible
    - Base URL: http://localhost:8000/v1
    - API Key: Setting the API key will automatically use it when communicating with TARGET_BASE_URL.
 
-## Àsè‡
+## å®Ÿè¡Œæ‰‹é †
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
-3. `set TARGET_BASE_URL=ÀÛ‚ÌLLM‚ª“®ì‚µ‚Ä‚¢‚éURL`
-   Example:
+3. `set TARGET_BASE_URL=å®Ÿéš›ã®LLMãŒå‹•ä½œã—ã¦ã„ã‚‹URL`  
+   ä¾‹:
    - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
-5. port 8000‚ÅƒT[ƒo[‚ª‹N“®‚·‚é‚Ì‚ÅACline, Roo-Code‚ğİ’è‚µ‚Ä‚­‚¾‚³‚¢B
-   —á: 
-   - API ƒvƒƒoƒCƒ_[: OpenAI Compatible
+5. port 8000ã§ã‚µãƒ¼ãƒãƒ¼ãŒèµ·å‹•ã™ã‚‹ã®ã§ã€Cline, Roo-Codeã‚’è¨­å®šã—ã¦ãã ã•ã„ã€‚  
+   ä¾‹: 
+   - API ãƒ—ãƒ­ãƒã‚¤ãƒ€ãƒ¼: OpenAI Compatible
    - Base URL: http://localhost:8000/v1
-   - APIƒL[: APIƒL[‚ğİ’è‚·‚é‚ÆATARGET_BASE_URL‚Æ’ÊM‚·‚é‚Æ‚«‚É©“®“I‚Ég—p‚µ‚Ü‚·B
+   - APIã‚­ãƒ¼: APIã‚­ãƒ¼ã‚’è¨­å®šã™ã‚‹ã¨ã€TARGET_BASE_URLã¨é€šä¿¡ã™ã‚‹ã¨ãã«è‡ªå‹•çš„ã«ä½¿ç”¨ã—ã¾ã™ã€‚
+
+
+## Settings
+The following settings can be configured as environment variables
+- TARGET_BASE_URL: (default: https://api.openai.com/v1) URL hosting the LLM
+- TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) URL hosting this application
+- TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
+
+ä¸‹è¨˜ã®è¨­å®šã‚’ç’°å¢ƒå¤‰æ•°ã¨ã—ã¦è¨­å®šå¯èƒ½ã§ã™
+- TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMã‚’ãƒ›ã‚¹ãƒ†ã‚£ãƒ³ã‚°ã—ã¦ã„ã‚‹URL
+- TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) ã“ã®ã‚¢ãƒ—ãƒªã‚’ãƒ›ã‚¹ãƒˆã™ã‚‹URL
+- TOOL_CALL_ADAPTER_PORT: (default: 8000) ã“ã®ã‚¢ãƒ—ãƒªã‚’ãƒ›ã‚¹ãƒˆã™ã‚‹ãƒãƒ¼ãƒˆ
