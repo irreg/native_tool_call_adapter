@@ -11,8 +11,6 @@ def extract_mcp_section(doc: str) -> str:
         return ""
     start = m.start()
     end_markers = (
-        r"### Resource Templates",
-        r"### Direct Resources",
         r"## Creating an MCP Server",
         r"\n====\n\n[A-Z][A-Z ]+[A-Z]\n",
     )
@@ -52,6 +50,21 @@ def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
                 available_tools_md = chunks[i + 2][start_pos:]
             else:
                 break
+
+        end_markers = (
+            r"### Resource Templates",
+            r"### Direct Resources",
+        )
+        for end_marker in end_markers:
+            m = re.search(
+                rf"^{re.escape(end_marker)}\n",
+                available_tools_md,
+                flags=re.MULTILINE,
+            )
+            if m:
+                available_tools_md = available_tools_md[: m.start()]
+                break
+
         tools_chunks = re.split(
             r"^-\s+(?P<name>[^:]+):\s+(?P<desc>[\s\S]+?)\n\s+Input Schema:\n(?=\s*{)",
             available_tools_md,
