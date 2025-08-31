@@ -98,8 +98,13 @@ class ReplaceInFileParser(ExtraParserIF):
     ) -> tuple[str, JsonObj]:
         if tool_name != ReplaceInFileParser.tool_name:
             return tool_name, arguments
-        patterns = ReplaceInFileParser.search_patterns(arguments["diff"])
+        diff = arguments.get("diff")
+        if not isinstance(diff, str):
+            # fallback
+            return tool_name, arguments
+        patterns = ReplaceInFileParser.search_patterns(diff)
         if not patterns:
+            # fallback
             return tool_name, arguments
         arguments = copy.deepcopy(arguments)
         arguments["diff"] = patterns
@@ -110,20 +115,22 @@ class ReplaceInFileParser(ExtraParserIF):
         if (
             tool_name != ReplaceInFileParser.tool_name
             or "diff" not in arguments
-            or not isinstance(arguments["diff"], list)
+            or isinstance(arguments["diff"], str)
         ):
             return tool_name, arguments
+        elif not isinstance(arguments["diff"], list):
+            org_diffs = [arguments["diff"]]
+        else:
+            org_diffs = arguments["diff"]
+
         diffs = []
-        for diff in arguments["diff"]:
-            if isinstance(diff, dict) and "SEARCH" in diff and "REPLACE" in diff:
+        for diff in org_diffs:
+            if isinstance(diff, dict):
+                search = diff.get("SEARCH", "")
+                replace = diff.get("REPLACE", "")
                 diffs.append(
-                    f"------- SEARCH\n{diff['SEARCH']}\n"
-                    f"=======\n{diff['REPLACE']}\n"
-                    f"+++++++ REPLACE"
+                    f"------- SEARCH\n{search}\n=======\n{replace}\n+++++++ REPLACE"
                 )
-            else:
-                # fallback
-                return tool_name, arguments
         arguments = copy.deepcopy(arguments)
         arguments["diff"] = "\n".join(diffs)
         return tool_name, arguments
@@ -199,8 +206,13 @@ class ApplyDiffParser(ExtraParserIF):
     ) -> tuple[str, JsonObj]:
         if tool_name != ApplyDiffParser.tool_name:
             return tool_name, arguments
-        patterns = ApplyDiffParser.search_patterns(arguments["diff"])
+        diff = arguments.get("diff")
+        if not isinstance(diff, str):
+            # fallback
+            return tool_name, arguments
+        patterns = ApplyDiffParser.search_patterns(diff)
         if not patterns:
+            # fallback
             return tool_name, arguments
         arguments = copy.deepcopy(arguments)
         arguments["diff"] = patterns
@@ -211,40 +223,35 @@ class ApplyDiffParser(ExtraParserIF):
         if (
             tool_name != ApplyDiffParser.tool_name
             or "diff" not in arguments
-            or not isinstance(arguments["diff"], list)
+            or isinstance(arguments["diff"], str)
         ):
             return tool_name, arguments
-
+        elif not isinstance(arguments["diff"], list):
+            org_diffs = [arguments["diff"]]
+        else:
+            org_diffs = arguments["diff"]
         diffs = []
-        for diff in arguments["diff"]:
-            if (
-                isinstance(diff, dict)
-                and "start_line" in diff
-                and "SEARCH" in diff
-                and "REPLACE" in diff
-            ):
+        for diff in org_diffs:
+            if isinstance(diff, dict):
                 search = re.sub(
                     r"^(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)$",
                     r"\\\1",
-                    diff["SEARCH"],
+                    diff.get("SEARCH", ""),
                     flags=re.MULTILINE,
                 )
                 replace = re.sub(
                     r"^(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)$",
                     r"\\\1",
-                    diff["REPLACE"],
+                    diff.get("REPLACE", ""),
                     flags=re.MULTILINE,
                 )
                 diffs.append(
                     f"<<<<<<< SEARCH\n"
-                    f":start_line:{diff['start_line']}\n"
+                    f":start_line:{diff.get('start_line', 0)}\n"
                     f"-------\n{search}\n"
                     f"=======\n{replace}\n"
                     f">>>>>>> REPLACE"
                 )
-            else:
-                # fallback
-                return tool_name, arguments
         arguments = copy.deepcopy(arguments)
         arguments["diff"] = "\n".join(diffs)
         return tool_name, arguments
@@ -311,7 +318,11 @@ class UpdateTodoListParser(ExtraParserIF):
     ) -> tuple[str, JsonObj]:
         if tool_name != UpdateTodoListParser.tool_name:
             return tool_name, arguments
-        patterns = UpdateTodoListParser.search_patterns(arguments["todos"])
+        todos = arguments.get("todos")
+        if not isinstance(todos, str):
+            # fallback
+            return tool_name, arguments
+        patterns = UpdateTodoListParser.search_patterns(todos)
         if not patterns:
             # fallback
             return tool_name, arguments
@@ -324,25 +335,25 @@ class UpdateTodoListParser(ExtraParserIF):
         if (
             tool_name != UpdateTodoListParser.tool_name
             or "todos" not in arguments
-            or not isinstance(arguments["todos"], list)
+            or isinstance(arguments["todos"], str)
         ):
             return tool_name, arguments
-
-        diffs = []
-        for diff in arguments["todos"]:
-            if isinstance(diff, dict) and "todo" in diff and "status" in diff:
+        elif not isinstance(arguments["todos"], list):
+            org_todos = [arguments["todos"]]
+        else:
+            org_todos = arguments["todos"]
+        todos = []
+        for todo in org_todos:
+            if isinstance(todo, dict):
                 status = (
-                    re.match(r"^(\[)?(?P<status>.*?)(\])?$", diff["status"]).group(
-                        "status"
-                    )
+                    re.match(
+                        r"^(\[)?(?P<status>.*?)(\])?$", todo.get("status", " ")
+                    ).group("status")
                     or " "
                 )
-                diffs.append(f"[{status}] {diff['todo'].replace('\n', ' ')}")
-            else:
-                # fallback
-                return tool_name, arguments
+                todos.append(f"[{status}] {todo.get('todo', '').replace('\n', ' ')}")
         arguments = copy.deepcopy(arguments)
-        arguments["todos"] = "\n".join(diffs)
+        arguments["todos"] = "\n".join(todos)
         return tool_name, arguments
 
 

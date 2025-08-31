@@ -26,11 +26,13 @@ With relatively small models, [cline](https://github.com/cline/cline) and [Roo-C
 This application parses XML-formatted tool calls from Cline and Roo-Code and converts them into a format compliant with OpenAI API's tool_calls.
 
 Significant improvements in performance have been confirmed with [gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) and other models.
+Even with large models, the reduced load of considering tool calls should lead to more accurate behavior.
 
 比較的小さなモデルでは、[cline](https://github.com/cline/cline)や[Roo-Code](https://github.com/RooCodeInc/Roo-Code)のツール呼び出しの処理が上手く扱えないことがあります。
 このアプリケーションはClineやRoo-CodeのXML形式のツール呼び出しをパースし、OpenAI APIのtool_callsに準じた形式に変換します。
 
 [gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)などで挙動が大幅に改善することが確認できています。
+大きなモデルであってもツール呼び出しを考える負荷が減るため、より正確な挙動になると思われます。
 
 ## Notes
 This is an experimental application.
