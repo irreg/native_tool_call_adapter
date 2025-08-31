@@ -25,7 +25,7 @@ def extract_mcp_section(doc: str) -> str:
 def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
     # split by "## <server_name> (`<uri>`)"
     chunks = re.split(
-        r"^##\s+(?P<name>[^\(]+?)(?:\s+\(`(?P<uri>.+?)`\))?\n",
+        r"^##\s+(?P<name>[^\(]+?)(?:\s+\(`(?P<uri>.+?)`\))?\n\n(?=###\s+(?:Instructions|Available Tools|Resource Templates|Direct Resources)\n)",
         mcp_md,
         flags=re.MULTILINE,
     )
@@ -38,18 +38,17 @@ def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
         m = None
         start_pos = 0
         available_tools_md = ""
-        while True:
-            section_name = "### Available Tools"
-            m = re.search(
-                rf"^{re.escape(section_name)}\n",
-                chunks[i + 2][start_pos:],
-                flags=re.MULTILINE,
-            )
-            if m:
-                start_pos += m.end()
-                available_tools_md = chunks[i + 2][start_pos:]
-            else:
-                break
+
+        section_name = "### Available Tools"
+        m = re.search(
+            rf"^{re.escape(section_name)}\n",
+            chunks[i + 2][start_pos:],
+            flags=re.MULTILINE,
+        )
+        if not m:
+            continue
+        start_pos += m.end()
+        available_tools_md = chunks[i + 2][start_pos:]
 
         end_markers = (
             r"### Resource Templates",
