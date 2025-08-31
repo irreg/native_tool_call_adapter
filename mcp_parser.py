@@ -11,6 +11,8 @@ def extract_mcp_section(doc: str) -> str:
         return ""
     start = m.start()
     end_markers = (
+        r"### Resource Templates",
+        r"### Direct Resources",
         r"## Creating an MCP Server",
         r"\n====\n\n[A-Z][A-Z ]+[A-Z]\n",
     )
@@ -25,7 +27,7 @@ def extract_mcp_section(doc: str) -> str:
 def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
     # split by "## <server_name> (`<uri>`)"
     chunks = re.split(
-        r"^##\s+(?P<name>[^\(]+?)\s+\(`(?P<uri>.+?)`\)\n",
+        r"^##\s+(?P<name>[^\(]+?)(?:\s+\(`(?P<uri>.+?)`\))?\n",
         mcp_md,
         flags=re.MULTILINE,
     )
