@@ -112,10 +112,12 @@ class ReplaceInFileParser(ExtraParserIF):
 
     @staticmethod
     def preconvert_to_xml(tool_name: str, arguments: JsonObj) -> tuple[str, JsonObj]:
-        if tool_name != ReplaceInFileParser.tool_name:
+        if (
+            tool_name != ReplaceInFileParser.tool_name
+            or "diff" not in arguments
+            or isinstance(arguments["diff"], str)
+        ):
             return tool_name, arguments
-        if "diff" not in arguments:
-            org_diffs = []
         elif not isinstance(arguments["diff"], list):
             org_diffs = [arguments["diff"]]
         else:
@@ -218,10 +220,12 @@ class ApplyDiffParser(ExtraParserIF):
 
     @staticmethod
     def preconvert_to_xml(tool_name: str, arguments: JsonObj) -> tuple[str, JsonObj]:
-        if tool_name != ApplyDiffParser.tool_name:
+        if (
+            tool_name != ApplyDiffParser.tool_name
+            or "diff" not in arguments
+            or isinstance(arguments["diff"], str)
+        ):
             return tool_name, arguments
-        if "diff" not in arguments:
-            org_diffs = []
         elif not isinstance(arguments["diff"], list):
             org_diffs = [arguments["diff"]]
         else:
@@ -248,9 +252,6 @@ class ApplyDiffParser(ExtraParserIF):
                     f"=======\n{replace}\n"
                     f">>>>>>> REPLACE"
                 )
-            else:
-                # fallback
-                return tool_name, arguments
         arguments = copy.deepcopy(arguments)
         arguments["diff"] = "\n".join(diffs)
         return tool_name, arguments
@@ -331,10 +332,12 @@ class UpdateTodoListParser(ExtraParserIF):
 
     @staticmethod
     def preconvert_to_xml(tool_name: str, arguments: JsonObj) -> tuple[str, JsonObj]:
-        if tool_name != UpdateTodoListParser.tool_name:
+        if (
+            tool_name != UpdateTodoListParser.tool_name
+            or "todos" not in arguments
+            or isinstance(arguments["todos"], str)
+        ):
             return tool_name, arguments
-        if "todos" not in arguments:
-            org_todos = []
         elif not isinstance(arguments["todos"], list):
             org_todos = [arguments["todos"]]
         else:
