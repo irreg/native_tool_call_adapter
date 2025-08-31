@@ -1,7 +1,9 @@
 import copy
+import json
 import re
 from abc import ABC, abstractmethod
 
+from mcp_parser import build_mcp_tool_schema, extract_mcp_section, parse_mcp_sections
 from parser import JsonObj, extract_block_after_label
 
 
@@ -10,12 +12,14 @@ class ExtraParserIF(ABC):
 
     @staticmethod
     @abstractmethod
-    def search_patterns(text: str) -> list[dict]:
+    def search_patterns(text: str) -> list[dict[str, str]]:
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
-    def get_schema(doc: str, original_schema: dict[str, str]) -> dict | None:
+    def get_schema(
+        doc: str, original_schema: JsonObj, system_prompt: str
+    ) -> tuple[JsonObj | list[JsonObj] | None, dict[str, str]]:
         raise NotImplementedError
 
     @staticmethod
@@ -35,7 +39,7 @@ class ReplaceInFileParser(ExtraParserIF):
     tool_name = "replace_in_file"
 
     @staticmethod
-    def search_patterns(text: str) -> list[dict]:
+    def search_patterns(text: str) -> list[dict[str, str]]:
         pattern = re.compile(
             r"(?P<indent>[ \t]*)------- SEARCH\n(?P<search>.*?)\n"
             r"(?P=indent)=======\n(?P<replace>.*?)\n"
@@ -55,13 +59,15 @@ class ReplaceInFileParser(ExtraParserIF):
         return results
 
     @staticmethod
-    def get_schema(doc: str, original_schema: dict[str, str]) -> dict | None:
+    def get_schema(
+        doc: str, original_schema: JsonObj, system_prompt: str
+    ) -> tuple[JsonObj | None, dict[str, str]]:
         if original_schema["function"]["name"] != ReplaceInFileParser.tool_name:
-            return None
+            return None, {}
         block = extract_block_after_label(doc, "Parameters:")
         params = ReplaceInFileParser.search_patterns(block)
         if not params:
-            return None
+            return None, {}
 
         original_schema = copy.deepcopy(original_schema)
         if diff := original_schema["function"]["parameters"]["properties"].get(
@@ -82,9 +88,9 @@ class ReplaceInFileParser(ExtraParserIF):
                 },
                 "required": ["SEARCH", "REPLACE"],
             }
-            return original_schema
+            return original_schema, {}
         else:
-            return None
+            return None, {}
 
     @staticmethod
     def postconvert_to_tool_call(
@@ -127,7 +133,7 @@ class ApplyDiffParser(ExtraParserIF):
     tool_name = "apply_diff"
 
     @staticmethod
-    def search_patterns(text: str) -> list[dict]:
+    def search_patterns(text: str) -> list[dict[str, str]]:
         pattern = re.compile(
             r"<<<<<<< SEARCH\n"
             r":start_line:\s*(?P<start_line>.*?)\n"
@@ -150,13 +156,15 @@ class ApplyDiffParser(ExtraParserIF):
         return results
 
     @staticmethod
-    def get_schema(doc: str, original_schema: dict[str, str]) -> dict | None:
+    def get_schema(
+        doc: str, original_schema: JsonObj, system_prompt: str
+    ) -> tuple[JsonObj | None | dict[str, str]]:
         if original_schema["function"]["name"] != ApplyDiffParser.tool_name:
-            return None
+            return None, {}
         block = extract_block_after_label(doc, "Diff format:")
         params = ApplyDiffParser.search_patterns(block)
         if not params:
-            return None
+            return None, {}
 
         original_schema = copy.deepcopy(original_schema)
         if diff := original_schema["function"]["parameters"]["properties"].get(
@@ -181,9 +189,9 @@ class ApplyDiffParser(ExtraParserIF):
                 },
                 "required": ["start_line", "SEARCH", "REPLACE"],
             }
-            return original_schema
+            return original_schema, {}
         else:
-            return None
+            return None, {}
 
     @staticmethod
     def postconvert_to_tool_call(
@@ -215,11 +223,23 @@ class ApplyDiffParser(ExtraParserIF):
                 and "SEARCH" in diff
                 and "REPLACE" in diff
             ):
+                search = re.sub(
+                    r"^(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)$",
+                    r"\\\1",
+                    diff["SEARCH"],
+                    flags=re.MULTILINE,
+                )
+                replace = re.sub(
+                    r"^(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)$",
+                    r"\\\1",
+                    diff["REPLACE"],
+                    flags=re.MULTILINE,
+                )
                 diffs.append(
                     f"<<<<<<< SEARCH\n"
                     f":start_line:{diff['start_line']}\n"
-                    f"-------\n{diff['SEARCH']}\n"
-                    f"=======\n{diff['REPLACE']}\n"
+                    f"-------\n{search}\n"
+                    f"=======\n{replace}\n"
                     f">>>>>>> REPLACE"
                 )
             else:
@@ -234,7 +254,7 @@ class UpdateTodoListParser(ExtraParserIF):
     tool_name = "update_todo_list"
 
     @staticmethod
-    def search_patterns(text: str) -> list[dict]:
+    def search_patterns(text: str) -> list[dict[str, str]]:
         pattern = re.compile(r"^\[(?P<status>[^\]]+)\]\s*(?P<todo>.+?)$", re.MULTILINE)
 
         results = []
@@ -249,16 +269,18 @@ class UpdateTodoListParser(ExtraParserIF):
         return results
 
     @staticmethod
-    def get_schema(doc: str, original_schema: dict[str, str]) -> dict | None:
+    def get_schema(
+        doc: str, original_schema: JsonObj, system_prompt: str
+    ) -> tuple[JsonObj | None, dict[str, str]]:
         if original_schema["function"]["name"] != UpdateTodoListParser.tool_name:
-            return None
+            return None, {}
         for block_name in ("Usage Example:", "Usage:", "Example:"):
             block = extract_block_after_label(doc, block_name)
             params = UpdateTodoListParser.search_patterns(block)
             if params:
                 break
         else:
-            return None
+            return None, {}
 
         original_schema = copy.deepcopy(original_schema)
         if todos := original_schema["function"]["parameters"]["properties"].get(
@@ -279,9 +301,9 @@ class UpdateTodoListParser(ExtraParserIF):
                 },
                 "required": ["todo", "status"],
             }
-            return original_schema
+            return original_schema, {}
         else:
-            return None
+            return None, {}
 
     @staticmethod
     def postconvert_to_tool_call(
@@ -322,3 +344,64 @@ class UpdateTodoListParser(ExtraParserIF):
         arguments = copy.deepcopy(arguments)
         arguments["todos"] = "\n".join(diffs)
         return tool_name, arguments
+
+
+class UseMcpToolParser(ExtraParserIF):
+    tool_name = "use_mcp_tool"
+
+    @staticmethod
+    def search_patterns(text: str) -> list[dict[str, str]]:
+        raise NotImplementedError
+
+    @staticmethod
+    def get_schema(
+        doc: str, original_schema: JsonObj, system_prompt: str
+    ) -> tuple[list[JsonObj] | None, dict[str, str]]:
+        if original_schema["function"]["name"] != UseMcpToolParser.tool_name:
+            return None, {}
+        mcp_doc = extract_mcp_section(system_prompt)
+        tool_docs, remove_pattern = parse_mcp_sections(mcp_doc)
+        try:
+            schemas = [build_mcp_tool_schema(tool_doc) for tool_doc in tool_docs]
+            if schemas:
+                return schemas, remove_pattern
+        except Exception:
+            pass
+        return None, {}
+
+    @staticmethod
+    def postconvert_to_tool_call(
+        tool_name: str, arguments: JsonObj
+    ) -> tuple[str, JsonObj]:
+        if tool_name != UseMcpToolParser.tool_name:
+            return tool_name, arguments
+        server_name = arguments.get("server_name")
+        inner_arguments = arguments.get("arguments")
+        if server_name is None or inner_arguments is None:
+            # fallback
+            return tool_name, arguments
+        try:
+            inner_argument_obj = json.loads(inner_arguments.strip())
+        except Exception:
+            # fallback
+            return tool_name, arguments
+        return (
+            f"{UseMcpToolParser.tool_name}.{server_name}.{tool_name}",
+            inner_argument_obj,
+        )
+
+    @staticmethod
+    def preconvert_to_xml(tool_name: str, arguments: JsonObj) -> tuple[str, JsonObj]:
+        match = re.match(
+            rf"^{UseMcpToolParser.tool_name}\.(?P<server_name>[^\.]+)\.(?P<tool_name>.+)$",
+            tool_name,
+        )
+        if not match:
+            return tool_name, arguments
+
+        new_arguments = {
+            "server_name": match.group("server_name"),
+            "tool_name": match.group("tool_name"),
+            "arguments": json.dumps(arguments, ensure_ascii=False),
+        }
+        return UseMcpToolParser.tool_name, new_arguments

@@ -73,7 +73,7 @@ async def handle_stream_response(
                 yield create_tool_call()
             yield line + "\n\n"
             continue
-        data = json.loads(line[6:])
+        data = json.loads(line[6:].strip())
         choice = (data.get("choices") or [{}])[0]
         delta = choice.get("delta", {})
         if (
