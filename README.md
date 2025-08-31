@@ -15,7 +15,8 @@ flowchart LR
 flowchart LR
     A[cline, Roo-Code] --> |XML tool defs|B[**This app**]
     B --> |native tool defs|C[LLM]
-    C -.-> |native tool calls|B
+    C -.-> |native tool calls
+    <u>with an accurate signature</u>|B
     B -.-> |XML tool calls
     <u>with an accurate signature</u>|A
 ```
@@ -43,11 +44,11 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
-3. `set TARGET_BASE_URL=actual LLM operating URL`
+3. `set TARGET_BASE_URL=actual LLM operating URL`  
    Example:
    - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
-5. The server will start on port 8000, so configure Cline and Roo-Code.
+5. The server will start on port 8000, so configure Cline and Roo-Code.  
    Example:
    - API Provider: OpenAI Compatible
    - Base URL: http://localhost:8000/v1
@@ -56,12 +57,24 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
 ## 実行手順
 1. `git clone https://github.com/irreg/native_tool_call_adapter.git
 2. `uv sync`
-3. `set TARGET_BASE_URL=実際のLLMが動作しているURL`
-   Example:
+3. `set TARGET_BASE_URL=実際のLLMが動作しているURL`  
+   例:
    - TARGET_BASE_URL: http://localhost:8080/v1
 4. `uv run main.py`
-5. port 8000でサーバーが起動するので、Cline, Roo-Codeを設定してください。
+5. port 8000でサーバーが起動するので、Cline, Roo-Codeを設定してください。  
    例: 
    - API プロバイダー: OpenAI Compatible
    - Base URL: http://localhost:8000/v1
    - APIキー: APIキーを設定すると、TARGET_BASE_URLと通信するときに自動的に使用します。
+
+
+## Settings
+The following settings can be configured as environment variables
+TARGET_BASE_URL: (default: https://api.openai.com/v1) URL hosting the LLM
+TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) URL hosting this application
+TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
+
+下記の設定を環境変数として設定可能です
+TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMをホスティングしているURL
+TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
+TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
