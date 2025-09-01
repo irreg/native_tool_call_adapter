@@ -33,6 +33,8 @@ def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
         request["messages"][0]["content"] = processed_system_prompt
         if parser.schemas:
             request["tools"] = (request.get("tools") or []) + parser.schemas
+        if request.get("tools"):
+            request["tool_choice"] = "required"
 
     request["messages"] = parser.modify_xml_messages_to_tool_calls(request["messages"])
     return request, parser
