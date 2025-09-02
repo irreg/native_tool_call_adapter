@@ -34,7 +34,7 @@ def parse_mcp_sections(mcp_md: str) -> tuple[list[ToolDoc], dict[str, str]]:
     remove_patterns = {}
     for i in range(1, len(chunks), 3):
         server_name = chunks[i].strip()
-        server_uri = chunks[i + 1].strip()
+        # server_uri = chunks[i + 1].strip() if chunks[i + 1] else None
         m = None
         start_pos = 0
         available_tools_md = ""
