@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -131,19 +132,27 @@ class Parser:
                     continue
             if (
                 message["role"] == "user"
-                and last_id_value
                 and isinstance(message["content"], list)
                 and message["content"]
-                and (message["content"][0].get("text") or "").startswith(
-                    f"[{last_tool_name[0]} "
-                )
             ):
-                # If user message has tool calls, append last tool call
-                message["role"] = "tool"
-                message["tool_call_id"] = last_id_value[0]
-                last_id_value = last_id_value[1:]
-                last_tool_name = last_tool_name[1:]
-                continue
+                content_head = message["content"][0].get("text") or ""
+                if last_id_value and re.match(
+                    rf"^\[{last_tool_name[0]}\b", content_head
+                ):
+                    # If user message has tool calls, append last tool call
+                    message["role"] = "tool"
+                    message["tool_call_id"] = last_id_value[0]
+                    last_id_value = last_id_value[1:]
+                    last_tool_name = last_tool_name[1:]
+                    continue
+                elif content_head.startswith("[ERROR] "):
+                    tool_use_section = extract_section(
+                        content_head, "Reminder: Instructions for Tool Use"
+                    )
+                    message["content"][0]["text"] = content_head.replace(
+                        tool_use_section, ""
+                    )
+
             last_id_value = []
             last_tool_name = []
         return messages
