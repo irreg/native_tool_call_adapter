@@ -9,33 +9,34 @@ def from_unescaped_string(raw_str: str, schemas: list[JsonObj]) -> ET.Element:
 
     def parse_text(
         part_str: str, inner_schemas: dict[str, JsonObj]
-    ) -> tuple[list[ET.Element], int]:
+    ) -> tuple[list[ET.Element], int, int]:
         """Parse inner elements"""
         match = re.search(
             rf"(?P<head><(?P<tag>{'|'.join(inner_schemas.keys())})(?:\s[^>]*)?>)(?P<content>[\s\S]*?)(?P<foot></(?P=tag)>)",
             part_str,
         )
         if not match:
-            return [], 0
+            return [], 0, 0
         new_node = ET.fromstring(match.group("head") + match.group("foot"))
         inner_raw = match.group("content")
         schema = inner_schemas[new_node.tag]
+        if schema["type"] == "array":
+            schema = schema["items"]
         if schema["type"] == "object" and "value" in schema["properties"]:
             schema = schema["properties"]["value"]
 
-        is_array = schema["type"] == "array"
-
-        original_schema = schema
-        if is_array:
-            schema = schema["items"]
         if schema["type"] in ("string", "boolean", "number"):
             new_node.text = inner_raw
         elif schema["type"] == "object":
             pos = match.end("head")
             while True:
-                result, end_pos = parse_text(
+                result, start_pos, end_pos = parse_text(
                     part_str[pos : match.start("foot")], schema["properties"]
                 )
+                if start_pos:
+                    new_node.text = (new_node.text or "") + part_str[
+                        pos : pos + start_pos
+                    ]
                 if not result:
                     break
                 pos += end_pos
@@ -43,13 +44,9 @@ def from_unescaped_string(raw_str: str, schemas: list[JsonObj]) -> ET.Element:
         else:
             # Not Implemented
             pass
-        if is_array:
-            result, end_pos = parse_text(part_str[match.end() :], original_schema)
-            return [new_node].extend(result), match.end() + end_pos
-        else:
-            return [new_node], match.end()
+        return [new_node], match.start(), match.end()
 
-    elem, _ = parse_text(
+    elem, _, _2 = parse_text(
         raw_str,
         {
             schema["function"]["name"]: schema["function"]["parameters"]
