@@ -1,7 +1,8 @@
 import json
 import re
 
-from parser import JsonObj, ToolDoc
+from model import JsonObj
+from parser import ToolDoc
 
 
 def extract_mcp_section(doc: str) -> str:

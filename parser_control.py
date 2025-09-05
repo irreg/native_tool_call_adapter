@@ -11,8 +11,8 @@ from extra_parser import (
     UpdateTodoListParser,
     UseMcpToolParser,
 )
+from model import JsonObj
 from parser import (
-    JsonObj,
     ToolDoc,
     build_tool_schema,
     convert_obj_to_xml_with_id,
