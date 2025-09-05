@@ -25,6 +25,7 @@ def from_unescaped_string(raw_str: str, schemas: list[JsonObj]) -> ET.Element:
 
         is_array = schema["type"] == "array"
 
+        original_schema = schema
         if is_array:
             schema = schema["items"]
         if schema["type"] in ("string", "boolean", "number"):
@@ -43,7 +44,7 @@ def from_unescaped_string(raw_str: str, schemas: list[JsonObj]) -> ET.Element:
             # Not Implemented
             pass
         if is_array:
-            result, end_pos = parse_text(part_str[match.end() :], schema)
+            result, end_pos = parse_text(part_str[match.end() :], original_schema)
             return [new_node].extend(result), match.end() + end_pos
         else:
             return [new_node], match.end()
