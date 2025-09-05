@@ -1,10 +1,14 @@
+import copy
 import hashlib
 import re
 import textwrap
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any
+
+from loose_xml import from_unescaped_string, to_unescaped_string
+from model import JsonObj
 
 
 @dataclass
@@ -203,11 +207,6 @@ def group_children_by_tag(elem: ET.Element) -> dict[str, list[ET.Element]]:
     for child in list(elem):
         groups[child.tag].append(child)
     return groups
-
-
-JsonVal = Union[str, "JsonArray", "JsonObj"]
-JsonArray = list[JsonVal]
-JsonObj = dict[str, JsonVal]
 
 
 def convert_xml_element_to_obj(
@@ -439,8 +438,8 @@ def convert_obj_to_xml_with_id(
     root = ET.Element(root_name)
     build_xml_element(root, json_obj)
     ET.SubElement(root, "id").text = id  # Add id as a child element
-    xml_str = ET.tostring(root, encoding="unicode", short_empty_elements=False)
-    xml_str = xml_str.replace("\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; REPLACE\n", "\n=======\n")
+    xml_str = to_unescaped_string(root)
+    xml_str = xml_str.replace("\n<<<<<<< REPLACE\n", "\n=======\n")
     xml_str = xml_str.replace("\n------- REPLACE\n", "\n=======\n")
     return xml_str
 
@@ -448,7 +447,10 @@ def convert_obj_to_xml_with_id(
 def convert_xml_to_obj_exclude_id(
     xml_string: str, tool_schemas: list[JsonObj]
 ) -> tuple[str, JsonObj, str]:
-    root = ET.fromstring(xml_string)
+    copied_schemas = copy.deepcopy(tool_schemas)
+    for schema in copied_schemas:
+        schema["function"]["parameters"]["properties"]["id"] = {"type": "string"}
+    root = from_unescaped_string(xml_string, copied_schemas)
 
     # Get id tag value under root and remove it
     id_value = None

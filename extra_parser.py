@@ -4,7 +4,8 @@ import re
 from abc import ABC, abstractmethod
 
 from mcp_parser import build_mcp_tool_schema, extract_mcp_section, parse_mcp_sections
-from parser import JsonObj, extract_block_after_label
+from model import JsonObj
+from parser import extract_block_after_label
 
 
 class ExtraParserIF(ABC):
