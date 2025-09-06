@@ -1,11 +1,14 @@
 import copy
 import json
 import os
+import re
+from functools import cache
 from typing import Any, AsyncIterator
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 
 from parser_control import (
     Parser,
@@ -15,6 +18,40 @@ from parser_control import (
 app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
 
 TARGET_BASE_URL = os.getenv("TARGET_BASE_URL", "https://api.openai.com/v1")
+
+MESSAGE_DUMP_PATH = os.getenv("MESSAGE_DUMP_PATH")
+
+
+class Setting(BaseModel):
+    additional_replacement: dict[str, dict[str, str]] = {}
+
+
+@cache
+def get_additional_replacement() -> dict[str, dict[str, str]]:
+    try:
+        with open("setting.json", encoding="utf-8") as f:
+            return Setting.model_validate_json(f.read()).additional_replacement
+    except Exception:
+        return {}
+
+
+def apply_additional_replacement(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    replacements = get_additional_replacement()
+    messages = copy.deepcopy(messages)
+    for message in messages:
+        if role_replacement := replacements.get(message["role"]):
+            content = message["content"]
+            if isinstance(content, list):
+                for content_part in content:
+                    for pattern, repl in role_replacement.items():
+                        if text := content_part.get("text"):
+                            content_part["text"] = re.sub(pattern, repl, text)
+            elif isinstance(content, str):
+                for pattern, repl in role_replacement.items():
+                    message["content"] = re.sub(pattern, repl, content)
+    return messages
 
 
 def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
@@ -30,11 +67,18 @@ def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
                 ]
             )
         parser, processed_system_prompt = build_tool_parser(system_prompt)
+        request["messages"][0]["role"] = "system"
         request["messages"][0]["content"] = processed_system_prompt
         if parser.schemas:
             request["tools"] = (request.get("tools") or []) + parser.schemas
 
-    request["messages"] = parser.modify_xml_messages_to_tool_calls(request["messages"])
+    messages = parser.modify_xml_messages_to_tool_calls(request["messages"])
+    request["messages"] = apply_additional_replacement(messages)
+
+    if MESSAGE_DUMP_PATH:
+        with open(MESSAGE_DUMP_PATH, "w", encoding="utf-8") as f:
+            json.dump(request["messages"], f, ensure_ascii=False, indent=2)
+
     return request, parser
 
 
