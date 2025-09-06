@@ -388,8 +388,9 @@ class UseMcpToolParser(ExtraParserIF):
         if tool_name != UseMcpToolParser.tool_name:
             return tool_name, arguments
         server_name = arguments.get("server_name")
+        mcp_tool_name = arguments.get("tool_name")
         inner_arguments = arguments.get("arguments")
-        if server_name is None or inner_arguments is None:
+        if server_name is None or inner_arguments is None or mcp_tool_name is None:
             # fallback
             return tool_name, arguments
         try:
@@ -398,7 +399,7 @@ class UseMcpToolParser(ExtraParserIF):
             # fallback
             return tool_name, arguments
         return (
-            f"{UseMcpToolParser.tool_name}.{server_name}.{tool_name}",
+            f"{UseMcpToolParser.tool_name}.{server_name}.{mcp_tool_name}",
             inner_argument_obj,
         )
 
