@@ -75,8 +75,32 @@ The following settings can be configured as environment variables
 - TARGET_BASE_URL: (default: https://api.openai.com/v1) URL hosting the LLM
 - TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) URL hosting this application
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
+- MESSAGE_DUMP_PATH: (default: null) Dumps the message actually sent to the LLM to the specified path, allowing you to verify the converted content  
+
+Registering regular expressions in `setting.json` enables additional replacements.  
+Example of replacing "XML format" with "native format" in system prompt(`system`) and roo-code auto-responses(`user`):
+```json
+{
+  "additional_replacement": {
+    "system": { "XML format": "native format"},
+    "user": { "XML format": "native format"}
+  }
+}
+```
 
 下記の設定を環境変数として設定可能です
 - TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMをホスティングしているURL
 - TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
+- MESSAGE_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるメッセージをダンプするので、変換後の内容を確認出来ます  
+
+setting.jsonに正規表現を登録すると、追加で置換することが出来ます  
+システムプロンプト(`system`)と、roo-codeの自動応答(`user`)に含まれる"XML format"を"native format"に置換する例:
+```json
+{
+  "additional_replacement": {
+    "system": { "XML format": "native format"},
+    "user": { "XML format": "native format"}
+  }
+}
+```
