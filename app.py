@@ -20,6 +20,7 @@ app = FastAPI(title="Native Tool Call Adapter for Cline/Roo-Code")
 TARGET_BASE_URL = os.getenv("TARGET_BASE_URL", "https://api.openai.com/v1")
 
 MESSAGE_DUMP_PATH = os.getenv("MESSAGE_DUMP_PATH")
+TOOL_DUMP_PATH = os.getenv("TOOL_DUMP_PATH")
 
 
 class Setting(BaseModel):
@@ -78,6 +79,9 @@ def process_request(request: dict[str, Any]) -> tuple[dict[str, Any], Parser]:
     if MESSAGE_DUMP_PATH:
         with open(MESSAGE_DUMP_PATH, "w", encoding="utf-8") as f:
             json.dump(request["messages"], f, ensure_ascii=False, indent=2)
+    if TOOL_DUMP_PATH:
+        with open(TOOL_DUMP_PATH, "w", encoding="utf-8") as f:
+            json.dump((request.get("tools") or "[]"), f, ensure_ascii=False, indent=2)
 
     return request, parser
 

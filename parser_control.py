@@ -24,10 +24,13 @@ from parser import (
     parse_xml_example,
     remove_duplicated_section_from_doc,
 )
+from strict_parser import prune_nulls_by_type, strictify_schema
 
 
 class Parser:
-    def __init__(self, system_prompt: str, tool_docs: list[ToolDoc]):
+    def __init__(
+        self, system_prompt: str, tool_docs: list[ToolDoc], strict: bool = True
+    ):
         schemas: list[JsonObj] = []
         modified_schemas: list[JsonObj] = []
         extra_parsers: list[ExtraParserIF] = []
@@ -49,6 +52,15 @@ class Parser:
                 system_prompt = system_prompt.replace(before, after)
         self._original_schemas = schemas
         self._schemas = modified_schemas
+        strict_schemas = []
+        for schema in modified_schemas:
+            copied = copy.deepcopy(schema)
+            copied["function"]["parameters"] = strictify_schema(
+                copied["function"]["parameters"]
+            )
+            copied["function"]["strict"] = True
+            strict_schemas.append(copied)
+        self._strict_schemas = strict_schemas
         self._extra_parsers = extra_parsers
         self._system_prompt = system_prompt
 
@@ -72,7 +84,7 @@ class Parser:
 
     @property
     def schemas(self) -> list[JsonObj]:
-        return self._schemas
+        return self._strict_schemas
 
     @property
     def system_prompt(self) -> str:
@@ -161,6 +173,14 @@ class Parser:
         self, name: str, arguments: str
     ) -> tuple[str, JsonObj]:
         arguments_obj = json.loads(arguments.strip())
+        strict_schema = next(
+            schema
+            for schema in self._strict_schemas
+            if schema["function"]["name"] == name
+        )
+        arguments_obj = prune_nulls_by_type(
+            arguments_obj, strict_schema["function"]["parameters"]
+        )
         for extra_parser in self._extra_parsers:
             name, arguments_obj = extra_parser.preconvert_to_xml(name, arguments_obj)
         return name, arguments_obj
