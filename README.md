@@ -57,13 +57,49 @@ The following settings can be configured as environment variables
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
 - MESSAGE_DUMP_PATH: (default: null) Dumps the message actually sent to the LLM to the specified path, allowing you to verify the converted content  
 
-Registering regular expressions in `setting.json` enables additional replacements.  
-Example of replacing "XML format" with "native format" in system prompt(`system`) and roo-code auto-responses(`user`):
-```json
-{
-  "additional_replacement": {
-    "system": { "XML format": "native format"},
-    "user": { "XML format": "native format"}
-  }
-}
+### setting.yaml
+You can define additional replacement rules using regular expressions in setting.yaml.
+
+#### Configuration File Structure
+```yaml
+additional_replacement:
+  - name: Replacement rule name
+    role: Target role
+    pattern: Regular expression pattern
+    replace: Replacement string
+    trigger: Condition key to enable replacement
+    ref: List of role names to reference
+```
+Description of Each Field
+- name: (optional) Name of this replacement rule
+- role: Role of the message this rule applies to
+    - system: System prompt
+    - user: User-entered message or response sent by cline/Roo-Code to the LLM (e.g., when a tool call fails)
+    - tool: Past tool call result
+    - assistant: Past LLM response outside of tool calls
+    - completion: Newly generated response from the LLM (data returned to cline/Roo-Code, including tool calls)
+pattern: Regular expression pattern to search for.
+replace: (optional) Replacement string.
+    If omitted, named capture groups within the pattern (e.g., `(?P<key>...)`) can be captured and used in subsequent pattern/replace processing.
+ref: (optional) Uses a string captured from the message processed immediately before the specified role in pattern/replace. Replaces strings in pattern/replace matching the format `{key}` with the captured string.
+trigger: (optional) Only performs replacement if the string captured from the immediately preceding pattern contains the named capture group key.
+
+Example 1: Replace "XML tags" in cline responses to LLM with "tool calling"
+```yaml
+additional_replacement:
+  - role: user
+    pattern: XML tags
+    replace: tool calling
+```
+
+Example 2: Extract user_id from user messages and use it to replace values in LLM output
+```yaml
+additional_replacement:
+  - role: user
+    pattern: ID:(?P<user_id>\d+)
+  - role: completion
+    trigger: user_id
+    ref: [user]
+    pattern: Hello
+    replace: Hello #{user_id}!
 ```

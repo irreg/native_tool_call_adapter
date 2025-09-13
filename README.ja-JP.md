@@ -55,13 +55,49 @@ flowchart LR
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
 - MESSAGE_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるメッセージをダンプするので、変換後の内容を確認出来ます  
 
-setting.jsonに正規表現を登録すると、追加で置換することが出来ます  
-システムプロンプト(`system`)と、roo-codeの自動応答(`user`)に含まれる"XML format"を"native format"に置換する例:
-```json
-{
-  "additional_replacement": {
-    "system": { "XML format": "native format"},
-    "user": { "XML format": "native format"}
-  }
-}
+### setting.yaml
+setting.yaml に正規表現による追加の置換ルールを定義できます。
+
+#### 設定ファイルの構造
+```yaml
+additional_replacement:
+  - name: 置換ルールの名前
+    role: 対象となるロール
+    pattern: 正規表現パターン
+    replace: 置換後の文字列
+    trigger: 置換を有効化する条件キー
+    ref: 参照する role 名のリスト
+```
+各フィールドの説明
+- name: この置換ルールの名称(任意)
+- role: このルールが適用されるメッセージの role
+	- system: システムプロンプト
+	- user: ユーザの入力したメッセージ または cline/Roo-CodeがLLMに対して応答したメッセージ(ツール呼び出しに失敗した場合など)
+	- tool: 過去のツール呼び出し結果
+	- assistant: ツール呼び出し以外の部分の過去のLLMの応答
+	- completion: LLMが新しく生成した応答(cline/Roo-Codeに返す、ツール呼び出しを含むデータ)
+pattern: 検索する正規表現パターン。
+replace: 置換後の文字列。
+	省略した場合、patternに含まれる名前付きキャプチャグループ(例: `(?P<key>...)`)にマッチした文字列をキャプチャして、次に処理するpattern/replace内で利用することが出来ます。
+ref: 指定のroleの直前に処理したメッセージからキャプチャした文字列をpattern/replaceで使用します。pattern/replace内にある`{key}`の形式の文字列をキャプチャした文字列で置換します。
+trigger: 直前に処理したpatternからキャプチャした文字列にkeyの名前付きキャプチャグループが含まれている場合のみ置換を実行します（任意）。
+
+例1: clineからLLMへの応答に含まれるXML tagsの文字列をtool callingに置き換える
+```yaml
+additional_replacement:
+  - role: user
+    pattern: XML tags
+    replace: tool calling
+```
+
+例2: ユーザのメッセージから user_id を抽出し、LLMの出力に対してその値を使って置換を行う
+```yaml
+additional_replacement:
+  - role: user
+    pattern: ID:(?P<user_id>\d+)
+  - role: completion
+    trigger: user_id
+    ref: [user]
+    pattern: Hello
+    replace: Hello #{user_id}!
 ```
