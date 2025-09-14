@@ -54,6 +54,13 @@ flowchart LR
 - TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
 - MESSAGE_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるメッセージをダンプするので、変換後の内容を確認出来ます  
+- TOOL_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるツール定義一覧をダンプするので、変換後の内容を確認出来ます  
+- DISABLE_STRICT_SCHEMAS: (default: null) ツール定義に一致しないツール呼び出しを防ぐ機能を無効化します。  
+    複雑過ぎる定義を持つツールではツール呼び出しが不安定になることがあります。そのような症状が出た場合は、1を設定して無効化してください。
+- FORCE_TOOL_CALLING: (default: null) 必ずツールをどれか呼び出すように強制します。  
+    llama.cppでは、これを有効化するとreasoningが無効化されることがある(おそらくllama.cppのバグ)ため、デフォルトでは無効になっています。  
+    症状が発生しない場合や、reasoningが不要な場合は1を設定して有効化してください。cline/Roo-Codeにおいて、ツール呼び出し失敗を発生しにくくすることが出来ます。
+
 
 ### setting.yaml
 setting.yaml に正規表現による追加の置換ルールを定義できます。  
