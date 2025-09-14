@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
+from xml.sax.saxutils import escape, unescape
 
 from loose_xml import from_unescaped_string, to_unescaped_string
 from model import JsonObj
@@ -411,7 +412,10 @@ def remove_duplicated_section_from_doc(doc: str) -> str:
 
 
 def convert_obj_to_xml_with_id(
-    json_obj: JsonObj, root_name: str = "root", id: str = ""
+    json_obj: JsonObj,
+    root_name: str = "root",
+    id: str = "",
+    reasoning_content: str = "",
 ) -> str:
     def build_xml_element(parent: ET.Element, obj: JsonObj) -> None:
         if isinstance(obj, dict):
@@ -438,6 +442,8 @@ def convert_obj_to_xml_with_id(
     root = ET.Element(root_name)
     build_xml_element(root, json_obj)
     ET.SubElement(root, "id").text = id  # Add id as a child element
+    if reasoning_content:
+        ET.SubElement(root, "think").text = escape(reasoning_content)
     xml_str = to_unescaped_string(root)
     xml_str = xml_str.replace("\n<<<<<<< REPLACE\n", "\n=======\n")
     xml_str = xml_str.replace("\n------- REPLACE\n", "\n=======\n")
@@ -446,10 +452,11 @@ def convert_obj_to_xml_with_id(
 
 def convert_xml_to_obj_exclude_id(
     xml_string: str, tool_schemas: list[JsonObj]
-) -> tuple[str, JsonObj, str]:
+) -> tuple[str, JsonObj, str, str | None]:
     copied_schemas = copy.deepcopy(tool_schemas)
     for schema in copied_schemas:
         schema["function"]["parameters"]["properties"]["id"] = {"type": "string"}
+        schema["function"]["parameters"]["properties"]["think"] = {"type": "string"}
     root = from_unescaped_string(xml_string, copied_schemas)
 
     # Get id tag value under root and remove it
@@ -464,4 +471,16 @@ def convert_xml_to_obj_exclude_id(
         # Generate in a reproducible manner so that cache can be reused.
         id_value = hashlib.md5(xml_string.encode()).hexdigest()
 
-    return root.tag, convert_xml_element_to_obj(root, tool_schemas), id_value
+    reasoning_content = None
+    for child in list(root):
+        if child.tag == "think":
+            reasoning_content = unescape(child.text)
+            root.remove(child)
+            break
+
+    return (
+        root.tag,
+        convert_xml_element_to_obj(root, tool_schemas),
+        id_value,
+        reasoning_content,
+    )
