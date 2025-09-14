@@ -2,7 +2,7 @@ import copy
 import json
 import re
 import xml.etree.ElementTree as ET
-from typing import Any
+from typing import Any, Callable
 
 from extra_parser import (
     ApplyDiffParser,
@@ -130,12 +130,18 @@ class Parser:
                     if tool_calls:
                         message["tool_calls"] = tool_calls
                     continue
-            if (
-                message["role"] == "user"
-                and isinstance(message["content"], list)
-                and message["content"]
-            ):
-                content_head = message["content"][0].get("text") or ""
+            if message["role"] == "user" and message["content"]:
+                if isinstance(message["content"], list):
+                    content_head = message["content"][0].get("text") or ""
+
+                    def update(content: str):
+                        message["content"][0]["text"] = content
+                else:
+                    content_head = message["content"]
+
+                    def update(content: str):
+                        message["content"] = content
+
                 if last_id_value and re.match(
                     rf"^\[{last_tool_name[0]}\b", content_head
                 ):
@@ -149,9 +155,7 @@ class Parser:
                     tool_use_section = extract_section(
                         content_head, "Reminder: Instructions for Tool Use"
                     )
-                    message["content"][0]["text"] = content_head.replace(
-                        tool_use_section, ""
-                    )
+                    update(content_head.replace(tool_use_section, ""))
 
             last_id_value = []
             last_tool_name = []
@@ -181,6 +185,7 @@ class Parser:
     def modify_tool_calls_to_xml_messages(
         self,
         messages: list[dict[str, Any]],
+        apply_replacement_to_completion: Callable[[str], str],
     ) -> list[dict[str, Any]]:
         messages = copy.deepcopy(messages)
         for choice in messages.get("choices", []):
@@ -202,9 +207,10 @@ class Parser:
                             id=tool_call["id"],
                         )
                     )
-                choice["message"]["content"] = (
-                    choice["message"].get("content") or ""
-                ) + "\n".join(xml_parts)
+                content = (choice["message"].get("content") or "") + "\n".join(
+                    xml_parts
+                )
+                choice["message"]["content"] = apply_replacement_to_completion(content)
                 if choice["finish_reason"] == "tool_calls":
                     choice["finish_reason"] = "stop"
         return messages

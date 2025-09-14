@@ -1,4 +1,6 @@
 # NativeToolCallAdapter
+[日本語](README.ja-JP.md) | [English](README.md)
+
 
 ## Overview
 
@@ -21,25 +23,16 @@ flowchart LR
     <u>with an accurate signature</u>|A
 ```
 
-
 With relatively small models, [cline](https://github.com/cline/cline) and [Roo-Code](https://github.com/RooCodeInc/Roo-Code) tool calls may not be handled properly.
 This application parses XML-formatted tool calls from Cline and Roo-Code and converts them into a format compliant with OpenAI API's tool_calls.
 
 Significant improvements in performance have been confirmed with [gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) and other models.
 Even with large models, the reduced load of considering tool calls should lead to more accurate behavior.
 
-比較的小さなモデルでは、[cline](https://github.com/cline/cline)や[Roo-Code](https://github.com/RooCodeInc/Roo-Code)のツール呼び出しの処理が上手く扱えないことがあります。
-このアプリケーションはClineやRoo-CodeのXML形式のツール呼び出しをパースし、OpenAI APIのtool_callsに準じた形式に変換します。
-
-[gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)などで挙動が大幅に改善することが確認できています。
-大きなモデルであってもツール呼び出しを考える負荷が減るため、より正確な挙動になると思われます。
 
 ## Notes
 This is an experimental application.
 Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working if the prompt specifications change in the future.
-
-あくまでも実験的なアプリケーションです。
-パース処理はCline/Roo-Codeのプロンプトの内容に依存しているため、将来的なプロンプトの仕様変更で動かなくなる可能性があります。
 
 
 ## Execution Steps
@@ -56,19 +49,6 @@ Parsing depends on the content of Cline/Roo-Code prompts, so it may stop working
    - Base URL: http://localhost:8000/v1
    - API Key: Setting the API key will automatically use it when communicating with TARGET_BASE_URL.
 
-## 実行手順
-1. `git clone https://github.com/irreg/native_tool_call_adapter.git
-2. `uv sync`
-3. `set TARGET_BASE_URL=実際のLLMが動作しているURL`  
-   例:
-   - TARGET_BASE_URL: http://localhost:8080/v1
-4. `uv run main.py`
-5. port 8000でサーバーが起動するので、Cline, Roo-Codeを設定してください。  
-   例: 
-   - API プロバイダー: OpenAI Compatible
-   - Base URL: http://localhost:8000/v1
-   - APIキー: APIキーを設定すると、TARGET_BASE_URLと通信するときに自動的に使用します。
-
 
 ## Settings
 The following settings can be configured as environment variables
@@ -77,30 +57,50 @@ The following settings can be configured as environment variables
 - TOOL_CALL_ADAPTER_PORT: (default: 8000) Port hosting this application
 - MESSAGE_DUMP_PATH: (default: null) Dumps the message actually sent to the LLM to the specified path, allowing you to verify the converted content  
 
-Registering regular expressions in `setting.json` enables additional replacements.  
-Example of replacing "XML format" with "native format" in system prompt(`system`) and roo-code auto-responses(`user`):
-```json
-{
-  "additional_replacement": {
-    "system": { "XML format": "native format"},
-    "user": { "XML format": "native format"}
-  }
-}
+### setting.yaml
+You can define additional replacement rules using regular expressions in setting.yaml.  
+If you wish to use the existing JSON version of the settings (deprecated), please delete the YAML file.
+
+#### Configuration File Structure
+```yaml
+additional_replacement:
+  - name: Replacement rule name
+    role: Target role
+    pattern: Regular expression pattern
+    replace: Replacement string
+    trigger: Condition key to enable replacement
+    ref: List of role names to reference
+```
+Description of Each Field
+- name: (optional) Name of this replacement rule
+- role: Role of the message this rule applies to
+    - system: System prompt
+    - user: User-entered message or response sent by cline/Roo-Code to the LLM (e.g., when a tool call fails)
+    - tool: Past tool call result
+    - assistant: Past LLM response outside of tool calls
+    - completion: Newly generated response from the LLM (data returned to cline/Roo-Code, including tool calls)
+- pattern: Regular expression pattern to search for.
+- replace: (optional) Replacement string.  
+    If omitted, named capture groups within the pattern (e.g., `(?P<key>...)`) can be captured and used in subsequent pattern/replace processing.
+- ref: (optional) Uses a string captured from the message processed immediately before the specified role in pattern/replace. Replaces strings in pattern/replace matching the format `{key}` with the captured string.
+- trigger: (optional) Only performs replacement if the string captured from the immediately preceding pattern contains the named capture group key.
+
+Example 1: Replace "XML tags" in cline responses to LLM with "tool calling"
+```yaml
+additional_replacement:
+  - role: user
+    pattern: XML tags
+    replace: tool calling
 ```
 
-下記の設定を環境変数として設定可能です
-- TARGET_BASE_URL: (default: https://api.openai.com/v1) LLMをホスティングしているURL
-- TOOL_CALL_ADAPTER_HOST: (default: 0.0.0.0) このアプリをホストするURL
-- TOOL_CALL_ADAPTER_PORT: (default: 8000) このアプリをホストするポート
-- MESSAGE_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるメッセージをダンプするので、変換後の内容を確認出来ます  
-
-setting.jsonに正規表現を登録すると、追加で置換することが出来ます  
-システムプロンプト(`system`)と、roo-codeの自動応答(`user`)に含まれる"XML format"を"native format"に置換する例:
-```json
-{
-  "additional_replacement": {
-    "system": { "XML format": "native format"},
-    "user": { "XML format": "native format"}
-  }
-}
+Example 2: Extract user_id from user messages and use it to replace values in LLM output
+```yaml
+additional_replacement:
+  - role: user
+    pattern: ID:(?P<user_id>\d+)
+  - role: completion
+    trigger: user_id
+    ref: [user]
+    pattern: Hello
+    replace: Hello #{user_id}!
 ```
