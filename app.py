@@ -22,6 +22,8 @@ TARGET_BASE_URL = os.getenv("TARGET_BASE_URL", "https://api.openai.com/v1")
 
 MESSAGE_DUMP_PATH = os.getenv("MESSAGE_DUMP_PATH")
 TOOL_DUMP_PATH = os.getenv("TOOL_DUMP_PATH")
+DISABLE_STRICT_SCHEMAS = bool(os.getenv("DISABLE_STRICT_SCHEMAS"))
+FORCE_TOOL_CALLING = bool(os.getenv("FORCE_TOOL_CALLING"))
 
 
 def process_request(
@@ -38,11 +40,15 @@ def process_request(
                     if isinstance(t, dict) and "text" in t
                 ]
             )
-        parser, processed_system_prompt = build_tool_parser(system_prompt)
+        parser, processed_system_prompt = build_tool_parser(
+            system_prompt, not DISABLE_STRICT_SCHEMAS
+        )
         request["messages"][0]["role"] = "system"
         request["messages"][0]["content"] = processed_system_prompt
         if parser.schemas:
             request["tools"] = (request.get("tools") or []) + parser.schemas
+        if FORCE_TOOL_CALLING and request.get("tools"):
+            request["tool_choice"] = "required"
 
     messages = parser.modify_xml_messages_to_tool_calls(request["messages"])
     request["messages"], apply_replacement_to_completion = (

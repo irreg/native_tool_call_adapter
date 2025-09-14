@@ -21,7 +21,7 @@ def from_unescaped_string(raw_str: str, schemas: list[JsonObj]) -> ET.Element:
         inner_raw = match.group("content")
         schema = inner_schemas[new_node.tag]
         if schema["type"] == "array":
-            schema = schema["items"]
+            schema = schema.get("items") or schema["contains"]
         if schema["type"] == "object" and "value" in schema["properties"]:
             schema = schema["properties"]["value"]
 

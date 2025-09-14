@@ -1,9 +1,13 @@
 import copy
 from functools import partial
-from typing import Any
+from typing import Any, Callable
+
+from model import AnyJsonObj, AnyJsonVal
 
 
-def _resolve_ref(ref: str, root_schema: dict, processed_refs: set[str]) -> dict:
+def _resolve_ref(
+    ref: str, root_schema: AnyJsonObj, processed_refs: set[str]
+) -> AnyJsonObj:
     if ref in processed_refs:
         return {}
     processed_refs.add(ref)
@@ -18,7 +22,7 @@ def _resolve_ref(ref: str, root_schema: dict, processed_refs: set[str]) -> dict:
     return resolved
 
 
-def strictify_schema(schema: dict) -> dict:
+def strictify_schema(schema: AnyJsonObj) -> AnyJsonObj:
     #  Convert variables not marked as required to required and nullable
     schema_copy = copy.deepcopy(schema)
     # # Since a ref that has been processed once does not need to be processed again, use a global set.
@@ -27,10 +31,32 @@ def strictify_schema(schema: dict) -> dict:
         _resolve_ref, processed_refs=processed_refs, root_schema=schema_copy
     )
 
-    def process(node: dict):
+    def process(node: AnyJsonObj) -> None:
+        if any(
+            (key in node)
+            for key in (
+                "allOf",
+                "not",
+                "dependentRequired",
+                "dependentSchemas",
+                "if",
+                "then",
+                "else",
+                "$anchor",
+                "$dynamicAnchor",
+                "$dynamicRef",
+                "$id",
+                "patternProperties",
+                "prefixItems",
+                "unevaluatedItems",
+                "unevaluatedProperties",
+            )
+        ):
+            # fallback
+            raise ValueError("Unsupported parameter")
         while "$ref" in node:
             node = resolve_ref(node["$ref"])
-        for keyword in ("anyOf",):
+        for keyword in ("anyOf", "oneOf"):
             items = node.get(keyword) or []
             if not isinstance(items, list):
                 continue
@@ -55,16 +81,18 @@ def strictify_schema(schema: dict) -> dict:
                     process(prop_schema)
 
         if "array" in types:
-            process(node.get("items", {}))
+            process(node.get("items") or node.get("contains") or {})
 
-    def make_nullable(prop_schema: dict):
+    def make_nullable(prop_schema: AnyJsonObj) -> None:
         if "type" in prop_schema:
             types = prop_schema["type"]
             types = types if isinstance(types, list) else [types]
             if "null" not in types:
                 prop_schema["type"] = types + ["null"]
-        if "anyOf" in prop_schema:
-            schemas = prop_schema["anyOf"]
+        for keyword in ("anyOf", "oneOf"):
+            if keyword not in prop_schema:
+                continue
+            schemas = prop_schema[keyword]
             schemas = schemas if isinstance(schemas, list) else [schemas]
             for schema in schemas:
                 types = schema.get("type")
@@ -72,7 +100,7 @@ def strictify_schema(schema: dict) -> dict:
                 if "null" in types:
                     break
             else:
-                prop_schema["anyOf"] = schemas + [{"type": "null"}]
+                prop_schema[keyword] = schemas + [{"type": "null"}]
 
     process(schema_copy)
     return schema_copy
@@ -86,20 +114,28 @@ primitive_type_table = {
 }
 
 
-def _resolve_schema(data, schemas: list[dict], resolve_ref) -> dict | None:
+def _resolve_schema(
+    data: AnyJsonVal,
+    schemas: list[AnyJsonObj],
+    resolve_ref: Callable[[str, set[str]], AnyJsonObj],
+) -> AnyJsonObj | None:
     # Search for a matching schema
     for schema in schemas:
 
-        def check_schema(data, schema, required: bool = True) -> dict | None:
+        def check_schema(
+            data: AnyJsonVal, schema: AnyJsonObj, required: bool = True
+        ) -> AnyJsonObj | None:
             processed_refs = set()
             while "$ref" in schema:
                 schema = resolve_ref(schema["$ref"], processed_refs=processed_refs)
-            any_of = schema.get("anyOf") or []
+            any_of = schema.get("anyOf") or schema.get("oneOf") or []
             if any_of and not required:
                 any_of.append({"type": "null"})
             if result := _resolve_schema(data, any_of, resolve_ref):
                 return result
             enum = schema.get("enum") or []
+            if schema.get("const"):
+                enum.append(schema["const"])
             if data in enum:
                 return schema
             types = schema.get("type") or []
@@ -117,7 +153,7 @@ def _resolve_schema(data, schemas: list[dict], resolve_ref) -> dict | None:
                     return schema
             if isinstance(data, list) and "array" in types:
                 for data_item in data:
-                    sub_schema = schema.get("items")
+                    sub_schema = schema.get("items") or schema.get("contains")
                     if not check_schema(data_item, sub_schema):
                         return None
                 return schema
@@ -137,12 +173,16 @@ def _resolve_schema(data, schemas: list[dict], resolve_ref) -> dict | None:
 _DELETE = object()
 
 
-def _prune_nulls_by_type(data: Any, schema: dict[str, Any], resolve_ref) -> Any:
+def _prune_nulls_by_type(
+    data: AnyJsonVal,
+    schema: AnyJsonObj,
+    resolve_ref: Callable[[str, set[str]], AnyJsonObj],
+) -> Any:
     processed_refs = set()
     while "$ref" in schema:
         schema = resolve_ref(schema["$ref"], processed_refs=processed_refs)
 
-    items = schema.get("anyOf") or []
+    items = schema.get("anyOf") or schema.get("oneOf") or []
     if items:
         if result := _resolve_schema(data, items, resolve_ref):
             schema = result
@@ -165,7 +205,7 @@ def _prune_nulls_by_type(data: Any, schema: dict[str, Any], resolve_ref) -> Any:
         return out
 
     elif isinstance(data, list) and "array" in types:
-        item_schema = schema.get("items", {})
+        item_schema = schema.get("items") or schema.get("contains") or {}
         out = []
         for item in data:
             result = _prune_nulls_by_type(item, item_schema, resolve_ref)
@@ -177,7 +217,7 @@ def _prune_nulls_by_type(data: Any, schema: dict[str, Any], resolve_ref) -> Any:
         return data
 
 
-def prune_nulls_by_type(data: dict[str, Any], schema: dict[str, Any]) -> Any:
+def prune_nulls_by_type(data: AnyJsonObj, schema: AnyJsonObj) -> AnyJsonObj:
     # Remove when a non-nullable variable becomes null
     resolve_ref = partial(_resolve_ref, root_schema=schema)
     return _prune_nulls_by_type(data, schema, resolve_ref)

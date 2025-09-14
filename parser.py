@@ -235,7 +235,12 @@ def convert_xml_element_to_obj(
         for tag, elems in groups.items():
             tag_schema = schema_props.get(tag, {})
             if (not tag_schema and len(elems) > 1) or tag_schema.get("type") == "array":
-                obj[tag] = [inner(e, tag_schema.get("items", {})) for e in elems]
+                obj[tag] = [
+                    inner(
+                        e, tag_schema.get("items") or tag_schema.get("contains") or {}
+                    )
+                    for e in elems
+                ]
             else:
                 if value_schema := inner_schema.get("properties", {}).get("value"):
                     obj[tag] = {"value": inner(elems[0], value_schema), **elem.attrib}
