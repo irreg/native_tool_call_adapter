@@ -46,7 +46,11 @@ def get_additional_replacement() -> list[ReplacementItem]:
         with open("setting.json", encoding="utf-8") as f:
             return Setting.from_json_setting(_SettingJson.model_validate_json(f.read()))
     except Exception:
-        return {}
+        return Setting()
+
+
+def _escape_for_repl(s: str) -> str:
+    return s.replace("\\", r"\\")
 
 
 def apply_replacement(
@@ -66,17 +70,32 @@ def apply_replacement(
         if item.role != role:
             continue
 
-        replace_map = {}
+        replace_map_for_pattern = {}
+        replace_map_for_repl = {}
         if item.ref:
             for ref in item.ref:
-                replace_map.update(
+                replace_map_for_pattern.update(
                     {k: re.escape(v) for k, v in captured_values.get(ref, {}).items()}
                 )
-        if item.ref and not replace_map:
+                replace_map_for_repl.update(
+                    {
+                        k: _escape_for_repl(v)
+                        for k, v in captured_values.get(ref, {}).items()
+                    }
+                )
+        if item.ref and not replace_map_for_pattern:
             continue
-        pattern = item.pattern.format_map(replace_map) if item.ref else item.pattern
+        pattern = (
+            item.pattern.format_map(replace_map_for_pattern)
+            if item.ref
+            else item.pattern
+        )
         if item.replace is not None:
-            replace = item.replace.format_map(replace_map) if item.ref else item.replace
+            replace = (
+                item.replace.format_map(replace_map_for_repl)
+                if item.ref
+                else item.replace
+            )
             text = re.sub(pattern, replace, text)
         else:
             match = re.search(pattern, text)
