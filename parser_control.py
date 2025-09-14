@@ -24,10 +24,11 @@ from parser import (
     parse_xml_example,
     remove_duplicated_section_from_doc,
 )
+from strict_parser import prune_nulls_by_type, strictify_schema
 
 
 class Parser:
-    def __init__(self, system_prompt: str, tool_docs: list[ToolDoc]):
+    def __init__(self, system_prompt: str, tool_docs: list[ToolDoc], strict: bool):
         schemas: list[JsonObj] = []
         modified_schemas: list[JsonObj] = []
         extra_parsers: list[ExtraParserIF] = []
@@ -49,6 +50,21 @@ class Parser:
                 system_prompt = system_prompt.replace(before, after)
         self._original_schemas = schemas
         self._schemas = modified_schemas
+        self._strict = strict
+        strict_schemas = []
+        if strict:
+            for schema in modified_schemas:
+                copied = copy.deepcopy(schema)
+                try:
+                    copied["function"]["parameters"] = strictify_schema(
+                        copied["function"]["parameters"]
+                    )
+                    copied["function"]["strict"] = True
+                except Exception:
+                    # fallback
+                    pass
+                strict_schemas.append(copied)
+        self._strict_schemas = strict_schemas
         self._extra_parsers = extra_parsers
         self._system_prompt = system_prompt
 
@@ -72,7 +88,7 @@ class Parser:
 
     @property
     def schemas(self) -> list[JsonObj]:
-        return self._schemas
+        return self._strict_schemas if self._strict else self._schemas
 
     @property
     def system_prompt(self) -> str:
@@ -169,6 +185,25 @@ class Parser:
         self, name: str, arguments: str
     ) -> tuple[str, JsonObj]:
         arguments_obj = json.loads(arguments.strip())
+        if self._strict:
+            try:
+                strict_schema = next(
+                    schema
+                    for schema in self._strict_schemas
+                    if schema["function"]["name"] == name
+                )
+                if strict_schema["function"].get("strict"):
+                    schema = next(
+                        schema
+                        for schema in self._schemas
+                        if schema["function"]["name"] == name
+                    )
+                    if not schema["function"].get("strict"):
+                        arguments_obj = prune_nulls_by_type(
+                            arguments_obj, schema["function"]["parameters"]
+                        )
+            except StopIteration:
+                pass
         for extra_parser in self._extra_parsers:
             name, arguments_obj = extra_parser.preconvert_to_xml(name, arguments_obj)
         return name, arguments_obj
@@ -235,7 +270,7 @@ class Parser:
         return f"{name} arguments: {arguments}"
 
 
-def build_tool_parser(system_prompt: str) -> tuple[Parser, str]:
+def build_tool_parser(system_prompt: str, strict: bool = True) -> tuple[Parser, str]:
     # Remove xml formatting explanation from doc
     tool_formatting = extract_section(system_prompt, "Tool Use Formatting")
     new_system_prompt = system_prompt.replace(tool_formatting, "", count=1)
@@ -246,7 +281,7 @@ def build_tool_parser(system_prompt: str) -> tuple[Parser, str]:
 
     tools = parse_tools_section(tools_md)
 
-    parser = Parser(new_system_prompt, tools)
+    parser = Parser(new_system_prompt, tools, strict)
     new_system_prompt = parser.system_prompt
     for t in tools:
         # Convert each XML usage into a JSON call sample
