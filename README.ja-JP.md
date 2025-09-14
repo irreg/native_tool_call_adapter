@@ -56,7 +56,8 @@ flowchart LR
 - MESSAGE_DUMP_PATH: (default: null) 指定したパスに実際にLLMに送られるメッセージをダンプするので、変換後の内容を確認出来ます  
 
 ### setting.yaml
-setting.yaml に正規表現による追加の置換ルールを定義できます。
+setting.yaml に正規表現による追加の置換ルールを定義できます。  
+既存のjson版の設定(deprecated)を利用する場合はyamlファイルを削除してください。
 
 #### 設定ファイルの構造
 ```yaml
@@ -76,11 +77,11 @@ additional_replacement:
 	- tool: 過去のツール呼び出し結果
 	- assistant: ツール呼び出し以外の部分の過去のLLMの応答
 	- completion: LLMが新しく生成した応答(cline/Roo-Codeに返す、ツール呼び出しを含むデータ)
-pattern: 検索する正規表現パターン。
-replace: 置換後の文字列。
+- pattern: 検索する正規表現パターン。
+- replace: 置換後の文字列。  
 	省略した場合、patternに含まれる名前付きキャプチャグループ(例: `(?P<key>...)`)にマッチした文字列をキャプチャして、次に処理するpattern/replace内で利用することが出来ます。
-ref: 指定のroleの直前に処理したメッセージからキャプチャした文字列をpattern/replaceで使用します。pattern/replace内にある`{key}`の形式の文字列をキャプチャした文字列で置換します。
-trigger: 直前に処理したpatternからキャプチャした文字列にkeyの名前付きキャプチャグループが含まれている場合のみ置換を実行します（任意）。
+- ref: 指定のroleの直前に処理したメッセージからキャプチャした文字列をpattern/replaceで使用します。pattern/replace内にある`{key}`の形式の文字列をキャプチャした文字列で置換します。
+- trigger: 直前に処理したpatternからキャプチャした文字列にkeyの名前付きキャプチャグループが含まれている場合のみ置換を実行します（任意）。
 
 例1: clineからLLMへの応答に含まれるXML tagsの文字列をtool callingに置き換える
 ```yaml

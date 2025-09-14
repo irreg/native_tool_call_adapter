@@ -58,7 +58,8 @@ The following settings can be configured as environment variables
 - MESSAGE_DUMP_PATH: (default: null) Dumps the message actually sent to the LLM to the specified path, allowing you to verify the converted content  
 
 ### setting.yaml
-You can define additional replacement rules using regular expressions in setting.yaml.
+You can define additional replacement rules using regular expressions in setting.yaml.  
+If you wish to use the existing JSON version of the settings (deprecated), please delete the YAML file.
 
 #### Configuration File Structure
 ```yaml
@@ -78,11 +79,11 @@ Description of Each Field
     - tool: Past tool call result
     - assistant: Past LLM response outside of tool calls
     - completion: Newly generated response from the LLM (data returned to cline/Roo-Code, including tool calls)
-pattern: Regular expression pattern to search for.
-replace: (optional) Replacement string.
+- pattern: Regular expression pattern to search for.
+- replace: (optional) Replacement string.  
     If omitted, named capture groups within the pattern (e.g., `(?P<key>...)`) can be captured and used in subsequent pattern/replace processing.
-ref: (optional) Uses a string captured from the message processed immediately before the specified role in pattern/replace. Replaces strings in pattern/replace matching the format `{key}` with the captured string.
-trigger: (optional) Only performs replacement if the string captured from the immediately preceding pattern contains the named capture group key.
+- ref: (optional) Uses a string captured from the message processed immediately before the specified role in pattern/replace. Replaces strings in pattern/replace matching the format `{key}` with the captured string.
+- trigger: (optional) Only performs replacement if the string captured from the immediately preceding pattern contains the named capture group key.
 
 Example 1: Replace "XML tags" in cline responses to LLM with "tool calling"
 ```yaml
