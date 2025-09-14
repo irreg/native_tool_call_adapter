@@ -70,7 +70,7 @@ additional_replacement:
     ref: 参照する role 名のリスト
 ```
 各フィールドの説明
-- name: この置換ルールの名称(任意)
+- name: (任意)この置換ルールの名称
 - role: このルールが適用されるメッセージの role
 	- system: システムプロンプト
 	- user: ユーザの入力したメッセージ または cline/Roo-CodeがLLMに対して応答したメッセージ(ツール呼び出しに失敗した場合など)
@@ -78,10 +78,10 @@ additional_replacement:
 	- assistant: ツール呼び出し以外の部分の過去のLLMの応答
 	- completion: LLMが新しく生成した応答(cline/Roo-Codeに返す、ツール呼び出しを含むデータ)
 - pattern: 検索する正規表現パターン。
-- replace: 置換後の文字列。  
+- replace: (任意)置換後の文字列。  
 	省略した場合、patternに含まれる名前付きキャプチャグループ(例: `(?P<key>...)`)にマッチした文字列をキャプチャして、次に処理するpattern/replace内で利用することが出来ます。
-- ref: 指定のroleの直前に処理したメッセージからキャプチャした文字列をpattern/replaceで使用します。pattern/replace内にある`{key}`の形式の文字列をキャプチャした文字列で置換します。
-- trigger: 直前に処理したpatternからキャプチャした文字列にkeyの名前付きキャプチャグループが含まれている場合のみ置換を実行します（任意）。
+- ref: (任意)指定のroleの直前に処理したメッセージからキャプチャした文字列をpattern/replaceで使用します。pattern/replace内にある`{key}`の形式の文字列をキャプチャした文字列で置換します。
+- trigger: (任意)直前に処理したpatternからキャプチャした文字列にkeyの名前付きキャプチャグループが含まれている場合のみ置換を実行します。
 
 例1: clineからLLMへの応答に含まれるXML tagsの文字列をtool callingに置き換える
 ```yaml
