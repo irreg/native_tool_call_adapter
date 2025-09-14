@@ -107,8 +107,10 @@ class Parser:
                     )
                     for xml in xml_tool_calls:
                         try:
-                            name, json_dict, id_value = convert_xml_to_obj_exclude_id(
-                                xml, self._original_schemas
+                            name, json_dict, id_value, reasoning_content = (
+                                convert_xml_to_obj_exclude_id(
+                                    xml, self._original_schemas
+                                )
                             )
                         except (ET.ParseError, ValueError):
                             continue  # Skip if content is not valid XML
@@ -126,6 +128,8 @@ class Parser:
                         tool_calls.append(tool_call)
                         last_id_value.append(id_value)
                         last_tool_name.append(name)
+                        if reasoning_content:
+                            message["reasoning_content"] = reasoning_content
                         message["content"] = message["content"].replace(xml, "")
                     if tool_calls:
                         message["tool_calls"] = tool_calls
@@ -175,12 +179,14 @@ class Parser:
         )
 
     def modify_tool_call_to_xml_message(
-        self, name: str, tool_call: str, id: str
+        self, name: str, tool_call: str, id: str, reasoning_content: str
     ) -> str:
         name, arguments = self._preconvert_to_xml_message(name, tool_call)
         if not self._has_schema(name):
             return ""
-        return convert_obj_to_xml_with_id(arguments, root_name=name, id=id)
+        return convert_obj_to_xml_with_id(
+            arguments, root_name=name, id=id, reasoning_content=reasoning_content
+        )
 
     def modify_tool_calls_to_xml_messages(
         self,
@@ -193,6 +199,7 @@ class Parser:
                 "tool_calls"
             ):
                 xml_parts = []
+                reasoning_content = choice["message"].get("reasoning_content") or ""
                 for tool_call in choice["message"]["tool_calls"]:
                     name, arguments = self._preconvert_to_xml_message(
                         tool_call["function"]["name"],
@@ -205,8 +212,10 @@ class Parser:
                             arguments,
                             root_name=name,
                             id=tool_call["id"],
+                            reasoning_content=reasoning_content,
                         )
                     )
+                    reasoning_content = ""
                 content = (choice["message"].get("content") or "") + "\n".join(
                     xml_parts
                 )

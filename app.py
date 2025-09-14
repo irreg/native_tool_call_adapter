@@ -73,6 +73,7 @@ async def handle_stream_response(
     tool_call_index = 0
     tool_call_id = ""
     tool_name = ""
+    reasoning_content_buffer = ""
     async for line in response.aiter_lines():
         if await is_disconnected():
             return
@@ -80,15 +81,16 @@ async def handle_stream_response(
             continue
 
         def create_tool_call():
-            nonlocal buffer, tool_name, tool_call_id
+            nonlocal buffer, tool_name, tool_call_id, reasoning_content_buffer
             modified_data = parser.modify_tool_call_to_xml_message(
-                tool_name, buffer, tool_call_id
+                tool_name, buffer, tool_call_id, reasoning_content_buffer
             )
             modified_data = apply_replacement_to_completion(modified_data)
             last_chunk["choices"][0]["delta"]["content"] = modified_data
             buffer = ""
             tool_name = ""
             tool_call_id = ""
+            reasoning_content_buffer = ""
             return f"data: {json.dumps(last_chunk, ensure_ascii=False)}\n\n"
 
         if line.strip() == "data: [DONE]":
@@ -102,6 +104,7 @@ async def handle_stream_response(
         delta = choice.get("delta") or {}
         role_in_delta = delta.get("role", role)
         tool_calls_in_delta = delta.get("tool_calls")
+        reasoning_content_buffer += delta.get("reasoning_content") or ""
         if (
             choice_index_of_delta != choice_index
             or not delta
