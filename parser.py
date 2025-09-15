@@ -335,6 +335,7 @@ def build_schema_from_xml_samples(
     def node_schema(path: tuple[str, ...]) -> tuple[JsonObj, list[str]]:
         # path is the parent; we build a schema for this element (object with its children)
         props: JsonObj = {}
+        additional_required_children = []
         for child in children_by_path.get(path, []):
             child_path = path + (child,)
             base = {}
@@ -366,11 +367,12 @@ def build_schema_from_xml_samples(
             # wrap as array if multiplicity > 1 in any sample
             if is_array(path, child):
                 schema = {"type": "array", "items": base}
+                additional_required_children.append(child)
             else:
                 schema = base
             props[child] = schema
 
-        req = required_children(path)
+        req = required_children(path) + additional_required_children
         return props, req
 
     # Root is the tool element; OpenAI parameters correspond to its children (arguments)
