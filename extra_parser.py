@@ -309,6 +309,9 @@ class UpdateTodoListParser(ExtraParserIF):
                 },
                 "required": ["todo", "status"],
             }
+            required = original_schema["function"]["parameters"].get("required") or []
+            required.append("todos")
+            original_schema["function"]["parameters"]["required"] = required
             return original_schema, {}
         else:
             return None, {}
