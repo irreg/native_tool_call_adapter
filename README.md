@@ -61,7 +61,8 @@ The following settings can be configured as environment variables
     Tool calls may become unstable with tools that have overly complex definitions. If you encounter such issues, set this to 1 to disable it.
 - FORCE_TOOL_CALLING: (default: null) Forces the system to always call at least one tool.  
     In llama.cpp, enabling this may disable reasoning (likely a llama.cpp bug), so it is disabled by default.  
-    If no issues occur or reasoning is unnecessary, set it to 1 to enable. This can reduce tool call failures in cline/Roo-Code.
+    If no issues occur or reasoning is unnecessary, set it to 1 to enable. This can reduce tool call failures in cline/Roo-Code.  
+    This feature can also be enabled only when the most recent tool calls fail consecutively. In that case, set it to "auto".
 
 
 ### setting.yaml
