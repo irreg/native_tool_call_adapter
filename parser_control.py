@@ -106,10 +106,11 @@ class Parser:
     def modify_xml_messages_to_tool_calls(
         self,
         messages: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], bool]:
         messages = copy.deepcopy(messages)
         last_id_value: list[str] | None = []
         last_tool_name: list[str] | None = []
+        error_count = 0
         for message in messages:
             if message["role"] == "assistant":
                 if message["content"] and isinstance(message["content"], str):
@@ -170,16 +171,20 @@ class Parser:
                     message["tool_call_id"] = last_id_value[0]
                     last_id_value = last_id_value[1:]
                     last_tool_name = last_tool_name[1:]
+                    error_count = 0
                     continue
                 elif content_head.startswith("[ERROR] "):
                     tool_use_section = extract_section(
                         content_head, "Reminder: Instructions for Tool Use"
                     )
                     update(content_head.replace(tool_use_section, ""))
+                    error_count += 1
+                else:
+                    error_count = 0
 
             last_id_value = []
             last_tool_name = []
-        return messages
+        return messages, error_count >= 2
 
     def _preconvert_to_xml_message(
         self, name: str, arguments: str
